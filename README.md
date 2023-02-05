@@ -6,6 +6,10 @@
   - [Installation Prerequisite](installation-prerequisite)
 - [Functionality](#functionality)
   - [TOP AREA](#top-area)
+  - [COMMANE LINE AREA](#command-line-area)
+  - [MAIN DIRECTORY LIST](#main-directory-list)
+  - [PF KEY LABEL AREA](#pf-key-label-area)
+  - [FILENAME PREFIX AREA](#filename-prefix-area)
 - [RFSLIB Commands](#rfslib-commands)
 - [CICS/REXX Full Screen Editor](#cicsrexx-full-screen-editor)
   - [Overview](#overview)
@@ -83,17 +87,17 @@ This option provides the user the ability to perform one of the available progra
 9=DISPLAY
 This option allows the user to select the member for display.  The dislay function provides all the functions of the CICS/REXX Full Screen Editor but does not allow the user to save the current file.
 
-**COMMANE LINE AREA**
+### COMMANE LINE AREA
 
 The Command Line area allows the user to enter available commands for execution.  More information on the commands available can be obtained by entering "HELP COMMANDS" in the Command Line area.
 
-**MAIN DIRECTORY LIST**
+### MAIN DIRECTORY LIST
 
 The main directory list area shows the list of files and directories found in the current RFS directory.  Each line in this area contains the FILENAME and optional FILETYPE of each file or directory along with the DATE and TIME the file or directory was last updated and the SIZE of the file in records.
 
 Please note that the directory listing can be sorted in several different ways.  The current sort option and order is displayed below the column heading area. More information on how to control the sort order can be found below in the PF Key descriptions.
 
-**PF KEY LABEL AREA**
+### PF KEY LABEL AREA
 
 The PF Key label area displays the available PF Keys to the user.  These include the following.
 
@@ -126,7 +130,7 @@ Sorts the directory listing base on file SIZE. When this key is pressed it will 
 
 Please also note that the PF5 key is available and will retrieve the last command entered in the Command Line area at the top of the screen.  The last 25 commands entered are retained.  Hitting the PF5 key multiple times will retreive the next oldest command entered from the command history.
 
-**FILENAME PREFIX AREA**
+### FILENAME PREFIX AREA
 
 The FILENAME PREFIX selection can be used to limit the displayed directory listing to only the files and directories which start with the specified PREFIX. Enter the desired PREFIX and hit PF2 to REFRESH the display.
 
