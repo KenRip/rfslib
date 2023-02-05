@@ -10,7 +10,7 @@
 
 The RFSLIB application is an extension of the CICS/REXX support already provided with VSE of charge with the IBM CICS Transaction Server for VSE/ESA V1.1.1 product (it is also include in the CICS Transaction Server for z/VSE 2.2 product).  It provides an Intercative Interface look and feel to managing and editing the CICS/REXX File System.  It also provides several enhancements to the CICS/REXX functionality provided with VSE.  These enhancements include; SUBMIT and PRINT functionality, interfaces with an External Security Manager to provide a mechanism for securing the features and functions of the RFSLIB application.
 
-###Installation Prerequisite
+### Installation Prerequisite
 You must complete the instructions found in Appendix K: Post-Installation Configuration in the CICS Transaction Server for VSE/ESA REXX Guide.  This is necessary because the RFSLIB application relies on the existence of at least one REXX/CICS File System “Pool” being defined.
 
 Please note that the steps decribed in the section titled "Rename supplied Procedures" of Appendix K in the CICS Transaction Server for VSE/ESA REXX Guide have been made obsolete.  These *.Z members are now longer provided in PRD1.BASE.  Instead they are shipped already renamed to *.PROC in PRD1.BASE which makes them avaialble in the CICSICCF region shipped with z/VSE.
