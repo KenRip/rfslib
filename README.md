@@ -99,16 +99,22 @@ The PF Key label area displays the available PF Keys to the user.  These include
 
 PF1=HELP
 Provides access to the available help panels.
+
 PF2=REFRESH
 Refreshes the current directory listing displayed.
+
 PF3=END
 Exits the RFSLIB product and returns to either CICS or the z/VSE Interactive Interface.
+
 PF4=UP ONE DIR
 This allows the user to move up one directory in the CICS/REXX File System.  The RFS is a hierarchical file system similar to the file system found on a Windows or Linux based PC.
+
 PF6=NEW MEM/DIR
 This allows the user to create a new file (or member) or a new directory.  A separate panel screen is displayed.
+
 PF7=BACKWORD PF8=FORWARD
 Allows the user to page backward and forward through the current RFS directory listing.  These PF keys are only available when the directory listing contains more data than fits on a single screen.
+
 PF9=SORT.DATE
 Sorts the directory listing in DATE/TIME order. When this key is pressed it will re-sort the display in DATE/TIME order.  Initially this will be in descending order showing the most recently accessed files and directories at the top of the list.  If this PF Key is pressed again the sort order will be reversed to ascending order showing the oldest files and directories at the top of the list.
 
@@ -123,7 +129,6 @@ Please also note that the PF5 key is available and will retrieve the last comman
 **FILENAME PREFIX AREA**
 
 The FILENAME PREFIX selection can be used to limit the displayed directory listing to only the files and directories which start with the specified PREFIX. Enter the desired PREFIX and hit PF2 to REFRESH the display.
-
 
 ## RFSLIB Commands
 
@@ -582,21 +587,19 @@ IBM Publication Number SC34-5764-01.
 
 ### Tailoring JCL Skeletons
 	
-	The RFSLIB Application requires tailoring of JCL skeletions for use with the RFSLIB "Compile" feature.  One option is using the IBM provided Skeletons in ICCF Library 2 as the basis of the RFSLIB skeletons.  To do so you can do the following...
+The RFSLIB Application requires tailoring of JCL skeletions for use with the RFSLIB "Compile" feature.  One option is using the IBM provided Skeletons in ICCF Library 2 as the basis of the RFSLIB skeletons.  To do so you can do the following...
 	
-		1) Catalog the appropriate ICCF skeleton members from ICCF library 2 into PRD2.CONFIG (or you desginated RFS Skeleton sublibrary in RFS.CONFIG).
-		2) Make the following replacements in the skeletons...
-		   a) Locate all occurrances of the "* $$ SLI" card included in the skeleton.  It normally looks like the following...
-		         * $$ SLI ICCF=(&PROGNAME,&PASSWORD),LIB=(&LIBNO)
-			  Replace all occurrances of this entire card with the following...
-			     /INCLUDE &&PARAM2
-		   b) Replace all occurrances of &JOBNAME with &&PARAM1
-		   c) Replace all occurrances of &PROGNAME with &&PARAM1
-		   d) Replace all occurrances of &CATALOG and &HTML (present in MAP related skeletons) to an approriate value of 1 or 2. 
-			  These values are not provided by the RFSLIB "Compile" feature ao they most be hardcoded into your skeletons as required.
-		      In most cases you would set this to 1 for Catalog and 2 for HTML unless you also required generation of the HTML templates. 
-		3) Copy RFSCOMP.Z to PRD2.CONFIG as RFSCOMP.CONFIG and tailor this member as needed for the skeleton member names you created above.
-		   Note: RFSCOMP.Z ships pre-configured for supporting the VSE provided Assembler and COBOL for z/VSE skeleton names.
+1) Catalog the appropriate ICCF skeleton members from ICCF library 2 into PRD2.CONFIG (or you desginated RFS Skeleton sublibrary in RFS.CONFIG).
+2) Make the following replacements in the skeletons...
+a) Locate all occurrances of the "* $$ SLI" card included in the skeleton.  It normally looks like the following...
+    * $$ SLI ICCF=(&PROGNAME,&PASSWORD),LIB=(&LIBNO)
+Replace all occurrances of this entire card with the following...
+    /INCLUDE &&PARAM2
+b) Replace all occurrances of &JOBNAME with &&PARAM1
+c) Replace all occurrances of &PROGNAME with &&PARAM1
+d) Replace all occurrances of &CATALOG and &HTML (present in MAP related skeletons) to an approriate value of 1 or 2. These values are not provided by the RFSLIB "Compile" feature ao they most be hardcoded into your skeletons as required.  In most cases you would set this to 1 for Catalog and 2 for HTML unless you also required generation of the HTML templates. 
+3) Copy RFSCOMP.Z to PRD2.CONFIG as RFSCOMP.CONFIG and tailor this member as needed for the skeleton member names you created above.
+Note: RFSCOMP.Z ships pre-configured for supporting the VSE provided Assembler and COBOL for z/VSE skeleton names.
 
 ### Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application
 
@@ -612,6 +615,7 @@ These members include the following...
 ### Cross reference of VSE Library members provided with the RFSLIB application
 
 Members in PRD2.RFSLIB for the main "RFSLIB" application...
+
     RFSAUTH.PROC      - RFSLIB interface to an External Security Manager to provide security around the RFSLIB product's features and functions.
     RFSCOMP.PROC      - RFSLIB "Compile" feature.
     RFSCOMPD.PANSRC   - RFSLIB Panel Source for the RFSLIB "Compile" feature.
@@ -636,9 +640,9 @@ Members in PRD2.RFSLIB for the main "RFSLIB" application...
     RFSTOOL.PROC      - RFSLIB Batch Utility 
 
 Additional members in PRD2.RFSLIB which add features and functions to the REXX and FLST environments...
+    
     AUTHFUNC.PROC     - RFSLIB ships with a "dummy" version of AUTHFUNC.PROC which does not include any interfacing to an External Security Manager.
-    AUTHFUNC.Z        - Replace AUTHFUNC.PROC with this member if you want to activate the interface to an External Security Manager to control 
-	                    access to the SUBMIT, PRINT, LIBRP and LIBRC PROCs.
+    AUTHFUNC.Z        - Replace AUTHFUNC.PROC with this member if you want to activate the interface to an External Security Manager to control access to the SUBMIT, PRINT, LIBRP and LIBRC PROCs.
     DELEXEC.PROC      - Tool for managing EXECs in POOL2:\EXECLIB.  
     DELPANEL.PROC     - Tool for managing PANELs in POOL2:\PANELS.
     DELSHR.PROC       - Tool for managing items in POOL2:\SHARED.
