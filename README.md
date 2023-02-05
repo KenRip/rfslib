@@ -97,31 +97,31 @@ Please note that the directory listing can be sorted in several different ways. 
 
 The PF Key label area displays the available PF Keys to the user.  These include the following.
 
-PF1=HELP
+**PF1**=HELP
 Provides access to the available help panels.
 
-PF2=REFRESH
+**PF2**=REFRESH
 Refreshes the current directory listing displayed.
 
-PF3=END
+**PF3**=END
 Exits the RFSLIB product and returns to either CICS or the z/VSE Interactive Interface.
 
-PF4=UP ONE DIR
+**PF4**=UP ONE DIR
 This allows the user to move up one directory in the CICS/REXX File System.  The RFS is a hierarchical file system similar to the file system found on a Windows or Linux based PC.
 
-PF6=NEW MEM/DIR
+**PF6**=NEW MEM/DIR
 This allows the user to create a new file (or member) or a new directory.  A separate panel screen is displayed.
 
-PF7=BACKWORD PF8=FORWARD
+**PF7**=BACKWORD **PF8**=FORWARD
 Allows the user to page backward and forward through the current RFS directory listing.  These PF keys are only available when the directory listing contains more data than fits on a single screen.
 
-PF9=SORT.DATE
+**PF9**=SORT.DATE
 Sorts the directory listing in DATE/TIME order. When this key is pressed it will re-sort the display in DATE/TIME order.  Initially this will be in descending order showing the most recently accessed files and directories at the top of the list.  If this PF Key is pressed again the sort order will be reversed to ascending order showing the oldest files and directories at the top of the list.
 
-PF10=SORT.NAME
+**PF10**=SORT.NAME
 Sorts the directory listing in FILENAME order. When this key is pressed it will re-sort the display in FILENAME order.  Initially this will be in ascending order.  If this PF Key is pressed again the sort order will be reversed to descending order.
 
-PF11=SORT.SIZE
+**PF11**=SORT.SIZE
 Sorts the directory listing base on file SIZE. When this key is pressed it will re-sort the display in SIZE order showing the smallest files at the top of the list.  Pressing this PF Key again will reverse this sorting the listing showing the largest files at the top of the list.
 
 Please also note that the PF5 key is available and will retrieve the last command entered in the Command Line area at the top of the screen.  The last 25 commands entered are retained.  Hitting the PF5 key multiple times will retreive the next oldest command entered from the command history.
@@ -220,26 +220,28 @@ Several prefix commands are provided by the Editor. These commands are entered i
 ### Individual Line Commands
 
 The folloing commands work with individual lines and consist of one character...
-'/' - Specify current line in file
-'I' - Insert a line
-'D' - Delete a line
-'C' - Copy a line
-'M' - Move a line
-'R' - Replicate a line
-'"' - Synonym for replicate
+
+    '/' - Specify current line in file
+    'I' - Insert a line
+    'D' - Delete a line
+    'C' - Copy a line
+    'M' - Move a line
+    'R' - Replicate a line
+    '"' - Synonym for replicate
 
 When you enter one of these commands in the prefix area of a line the command performs its respective function on that line. You can also append a number to the end of the prefix command. This acts as a replication factor. If number "5" is appended to the "I" command five lines are inserted into the file.
 
 ### Consecutive Block Commands
 
 The following commands work with consecutive blocks of lines and consist of two characters...
-'DD' - Delete a block of lines
-'CC' - Copy a block of lines
-'MM' - Move a block of lines
-'RR' - Replicate a block of lines
-'""' - Synonym for block replicate
-'RR' - Replicate a block of lines
-'""' - Synonym for block replicate
+
+    'DD' - Delete a block of lines
+    'CC' - Copy a block of lines
+    'MM' - Move a block of lines
+    'RR' - Replicate a block of lines
+    '""' - Synonym for block replicate
+    'RR' - Replicate a block of lines
+    '""' - Synonym for block replicate
 
 Block commands are processed in pairs. You place one command in the prefix area of the first line of the block and place the same command in the prefix area of the last line of the block.  For example to delete a block of lines place a "DD" in the prefix area of the first line of the block and a "DD" in the prefix area of the last line in the block. If this was done on lines 00001 and 00005 it would delete line 00001 through 00005 inclusive.  The only block prefix command that
 allows a replication factor is the replicate command ('RR' or '""').  The replication factor must be specified with the first 'RR' replication command.
@@ -247,10 +249,11 @@ allows a replication factor is the replicate command ('RR' or '""').  The replic
 ### Destination Commands
 
 The following commands are called destination commands...
-'A' - After
-'B' - Before
-'F' - Following
-'P' - Preceding
+
+    'A' - After
+    'B' - Before
+    'F' - Following
+    'P' - Preceding
 
 These commands are used in conjunction with the copy and move commands (both individual and consecutive block) to specify the placement of the resulting copy or move function.
 
