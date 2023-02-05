@@ -169,8 +169,7 @@ The RFSLIB product adds support for RFS filename level enqueue / dequeue support
 
 Please note that this command is typically restricted to the System Administrator or Security Administrator.
 
-##CICS/REXX Full Screen Editor
-
+##CICS REXX Full Screen Editor
 
 ###Overview
 
