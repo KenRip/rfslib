@@ -7,7 +7,7 @@
 - [Functionality](#functionality)
   - [TOP AREA](#top-area)
 - [RFSLIB Commands](#rfslib-commands)
-- [CICS/REXX Full Screen Editor](#cics/rexx-full-screen-editor)
+- [CICS/REXX Full Screen Editor](#cicsrexx-full-screen-editor)
   - [Overview](#overview)
   - [Screen Format](#screen-format)
   - [Prefix Commands](#prefix-commands)
@@ -17,7 +17,7 @@
 - [Installation](#installation)
   - [Installation Steps](#installation-steps)
   - [Tailoring JCL Skeletons](#tailoring-jcl-skeletons)
-  - [Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application](#tailoring-existing-cics/rexx-procs-to-enhance-the-functionality-of-the-rfslib-application)
+  - [Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application](#tailoring-existing-cicsrexx-procs-to-enhance-the-functionality-of-the-rfslib-application)
   - [Cross reference of VSE Library members provided with the RFSLIB application](#cross-reference-of-vse-library-members-provided-with-the-rfslib-application)
 
 ## Introduction
