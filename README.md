@@ -207,7 +207,7 @@ The first line is reserved for the TITLE LINE and contains the following:
 - Column numbers
 - Displayed messages from the Editor
 
-There are informational lines that let you know you have reached "*** TOP OF DATA ***" or "*** BOTTOM OF DATA ***".
+There are informational lines that let you know you have reached "TOP OF DATA" or "BOTTOM OF DATA".
 
 The line which starts with "COMMAND ===>" is the Command Line where Editor commands can be entered or Editor macros can be invoked. The line immediately below the Command Line is concidered the "current line". This "current line" is highlighted and is significant for certain Editor commands.
 
