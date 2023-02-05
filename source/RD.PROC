@@ -1,0 +1,30 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: RD.PROC                                                   */
+/*********************************************************************/
+/* Exec to remove a directory in the current RFS library             */
+ARG in
+IF LENGTH(in) <> 0 THEN DO
+  IF POS(':',in) = 0 THEN DO
+    'RFS RDIR 'in
+    IF rc <> 0 THEN DO
+      IF rc = 130 THEN DO
+        SAY 'RD Command failed (Directory not empty), rc='rc
+      END
+      ELSE DO
+        SAY 'RD Command failed, rc='rc
+      END
+    END
+    ELSE DO
+      SAY 'Directory 'in' removed.'
+    END
+  END
+  ELSE DO
+    SAY 'Input Paramter should only contain ''directoryname'''
+  END
+END
+ELSE DO
+  SAY 'Input Paramter Required.  Please specify ''directoryname'''
+END

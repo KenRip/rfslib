@@ -1,0 +1,16 @@
+/* REXX/CICS Edit Profile                                      */
+/*-------------------------------------------------------------*/
+/* This profile member is invoked when the REXX/CICS Editor    */
+/* is started.  You can use this to customize the REXX/CICS    */
+/* Editor environment.                                         */
+/*-------------------------------------------------------------*/
+ADDRESS EDITSVR
+   'SET CASE UPPER IGNORE'
+   'SYNONYM BOT BOTTOM'
+   'SYNONYM LOC FIND'
+   'SYNONYM L FIND'
+   'SET PFKEY 1 EXEC RFSHELP EDITOR'
+   'SYNONYM QQ QQUIT'
+   'SET PFKEY 12 QQ'
+   'PFKLINE OFF'
+RETURN 0

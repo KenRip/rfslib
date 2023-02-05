@@ -1,0 +1,33 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: MOVE.PROC                                                 */
+/*********************************************************************/
+/* Exec to move a member in the current RFS library to the target    */
+ARG in out
+in = STRIP(in,'B')
+out = STRIP(out,'B')
+IF LENGTH(in) <> 0 THEN DO
+  IF POS(':',in) = 0 THEN DO
+    IF LENGTH(out) <> 0 THEN DO
+      'RFS COPY 'in' 'out'\'in
+      IF rc = 0 THEN DO
+        'RFS DELETE 'in
+        SAY 'File 'in' moved to 'out'.'
+      END
+      ELSE DO
+        SAY 'Copy operation failed with rc='rc'. Move not performed.'
+      END
+    END
+    ELSE DO
+      SAY 'Output Foldername Required.  Please specify ''foldername'''
+    END
+  END
+  ELSE DO
+    SAY 'Input Membername should only contain ''member.type'''
+  END
+END
+ELSE DO
+  SAY 'Input Membername Required.  Please specify ''member.type'''
+END

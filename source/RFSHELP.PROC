@@ -1,0 +1,195 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: RFSHELP.PROC                                              */
+/*********************************************************************/
+ARG helpname
+TRACE OFF
+'PSEUDO ON'
+/* Now IMPORT RFSLIB.CONFIG from PRD2.CONFIG to     */
+/* obtain default settings for RFSLIB environment.  */
+configlib = 'PRD2.CONFIG'
+ADDRESS REXXCICS 'CD'
+filepath = RESULT
+fullpath = filepath || 'CF$RFS$.'USERID()
+'IMPORT 'configlib'(RFSLIB.CONFIG) 'fullpath
+IF rc <> 0 THEN DO
+/* SAY 'Error importing RFSLIB.CONFIG from VSE library. RC='rc */
+  EXIT rc
+END
+/* Now read temporary RFS File into STEM for processing */
+'RFS DISKR CF$RFS$.'USERID()
+IF rc <> 0 THEN DO
+/* SAY 'Error reading CF$RFS$ RFS File. RC='rc */
+  EXIT rc
+END
+/* Temporary RFS file now longer needed, delete it.     */
+'RFS DELETE CF$RFS$.'USERID()
+/* Now process parameters from RFSLIB.CONFIG member.    */
+DO i = 1 TO DATA.0
+  INTERPRET STRIP(DATA.i)
+END
+ppath = 'FILE('RFSPANELPATH')'
+tuser = USERID()
+helplib = RFSHELPLIB
+/* Now IMPORT RFSHELP.DATA from RFSHELPLIB to pull  */
+/* in help data for each panel.                     */
+ADDRESS REXXCICS 'CD'
+filepath = RESULT
+fullpath = filepath || 'HD$RFS$.'USERID()
+'IMPORT 'RFSHELPLIB'(RFSHELP.DATA) 'fullpath
+IF rc <> 0 THEN DO
+/* SAY 'Error importing RFSHELP.DATA from VSE library. RC='rc */
+  EXIT rc
+END
+/* Now read temporary RFS File into STEM for processing */
+'RFS DISKR HD$RFS$.'USERID()
+IF rc <> 0 THEN DO
+/* SAY 'Error reading HD$RFS$ RFS File. RC='rc */
+  EXIT rc
+END
+/* Temporary RFS file now longer needed, delete it.     */
+'RFS DELETE HD$RFS$.'USERID()
+/* Now process data from RFSHELP.DATA.                  */
+helpcnt = 0
+DO i = 1 TO DATA.0
+  IF STRIP(SUBSTR(DATA.i,1,8)) = STRIP(helpname) THEN DO
+    helpcnt = helpcnt + 1
+    helpdata.helpcnt = SUBSTR(DATA.i,9,66)
+  END
+END
+helpdata.0 = helpcnt
+'TERMID'
+term = TERMID
+rfshelp_msgline = ''
+'SCRNINFO'
+tscrnht = SCRNHT
+SELECT
+  WHEN tscrnht = 24 THEN DO
+    /* MODEL 2 TERMINAL */
+    rfshpan = 'rfshelp'
+    rfshlin = 18
+  END
+  WHEN tscrnht = 27 THEN DO
+    /* MODEL 5 TERMINAL - TREAT LIKE MODEL 2 */
+    rfshpan = 'rfshelp'
+    rfshlin = 18
+  END
+  WHEN tscrnht = 32 THEN DO
+    /* MODEL 3 TERMINAL - 8 MORE LINES THAN MODEL 2 */
+    rfshpan = 'rfshelp3'
+    rfshlin = 26
+  END
+  WHEN tscrnht = 43 THEN DO
+    /* MODEL 4 TERMINAL - 19 MORE LINES THAN MODEL 2 */
+    rfshpan = 'rfshelp4'
+    rfshlin = 36
+  END
+  OTHERWISE
+    rfshpan = 'rfshelp'
+    rfshlin = 18
+END
+start_over:
+DO i = 1 TO rfshlin
+  help_stem1.i = ''
+END
+/*******************************/
+/* Now read the RFS directory. */
+/*******************************/
+hattrib = ''
+hpf7 = 'PF7=BACKWARD'
+hpf8 = 'PF8=FORWARD'
+hfwd = 'N'
+hbwd = 'N'
+hpagenum = 1
+/**************************************************************/
+/* Now start 'FOREVER' loop to process display and user input */
+/**************************************************************/
+DO FOREVER
+  hattrib = ''
+  hstr_idx = hpagenum * rfshlin - (rfshlin - 1)
+  hend_idx = hpagenum * rfshlin
+  hs = FORMAT(hpagenum,3)
+  htotalpages = TRUNC(helpdata.0 / rfshlin)
+  htotalpagesrnd = helpdata.0 // rfshlin
+  IF htotalpagesrnd > 0 THEN DO
+    htotalpages = htotalpages + 1
+  END
+  he = FORMAT(htotalpages,3)
+  DO q = hstr_idx TO hend_idx
+    hdisp_line = q // rfshlin
+    IF hdisp_line = 0 THEN hdisp_line = rfshlin
+    IF helpdata.q <> 'HELPDATA.'q THEN DO
+      help_stem1.hdisp_line = helpdata.q
+    END
+    ELSE DO
+      help_stem1.hdisp_line = ''
+    END
+  END
+  SELECT
+    WHEN hpagenum = 1 THEN DO
+      IF helpdata.q = 'HELPDATA.'q THEN DO
+        hattrib = hattrib'AT(hpf7 INV) AT(hpf8 INV)'
+        'PANEL SEND 'rfshpan ppath hattrib
+        hfwd = 'N'
+        hbwd = 'N'
+      END
+      ELSE DO
+        hattrib = hattrib'AT(hpf7 INV)'
+        'PANEL SEND 'rfshpan ppath hattrib
+        hfwd = 'Y'
+        hbwd = 'N'
+      END
+    END
+    WHEN hpagenum > 1 THEN DO
+      IF helpdata.q = 'HELPDATA.'q THEN DO
+        hattrib = hattrib'AT(hpf8 INV)'
+        'PANEL SEND 'rfshpan ppath hattrib
+        hfwd = 'N'
+        hbwd = 'Y'
+      END
+      ELSE DO
+        'PANEL SEND 'rfshpan ppath hattrib
+        hfwd = 'Y'
+        hbwd = 'Y'
+      END
+    END
+    OTHERWISE
+  END
+  IF rc > 4 THEN SIGNAL error
+  'PANEL RECEIVE 'rfshpan
+  IF rc > 4 THEN SIGNAL error
+  rfshelp_msgline = ''
+  /**********************************/
+  /* Process PF Keys and user input */
+  /**********************************/
+  SELECT
+    /* PF3 to exit */
+    WHEN pan.aid = 'PF3' THEN DO
+      EXIT 0
+    END
+    /* PF7 to page hbwd */
+    WHEN pan.aid = 'PF7' THEN DO
+      IF hbwd = 'Y' THEN DO
+        hpagenum = hpagenum - 1
+        IF hpagenum < 1 THEN hpagenum = 1
+      END
+      DROP x
+    END
+    /* PF8 to page hfwd */
+    WHEN pan.aid = 'PF8' THEN DO
+      IF hfwd = 'Y' THEN DO
+        hpagenum = hpagenum + 1
+      END
+      DROP x
+    END
+    OTHERWISE
+  END
+END
+EXIT 0
+RETURN 99
+error:
+SAY 'RFSHELP ERROR OCCURRED. LAST RC='rc
+'SENDE'
+EXIT

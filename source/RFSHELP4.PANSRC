@@ -1,0 +1,49 @@
+.DEFINE < turq protect
+.DEFINE @ turq skip
+.DEFINE ! white protect
+.DEFINE > green unprotect underline
+.DEFINE # var help_stem1.
+.PANEL rfshelp4
+<&helpname<               !HELP TEXT DISPLAY                   <PAGE<&hs@OF<&he@
+<
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<       <#                                                                 <
+<
+<                            PF3=END
+<&hpf7       @<&hpf8      @
+!&rfshelp_msgline
+.PANEL

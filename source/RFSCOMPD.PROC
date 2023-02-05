@@ -1,0 +1,162 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: RFSCOMPD.PROC                                             */
+/*********************************************************************/
+'PSEUDO ON'
+/* Now IMPORT RFSLIB.CONFIG from PRD2.CONFIG to     */
+/* obtain default settings for RFSLIB environment.  */
+configlib = 'PRD2.CONFIG'
+ADDRESS REXXCICS 'CD'
+filepath = RESULT
+fullpath = filepath || 'CF$RFS$.'USERID()
+'IMPORT 'configlib'(RFSLIB.CONFIG) 'fullpath
+IF rc <> 0 THEN DO
+/* SAY 'Error importing RFSLIB.CONFIG from VSE library. RC='rc */
+  EXIT rc
+END
+/* Now read temporary RFS File into STEM for processing */
+'RFS DISKR CF$RFS$.'USERID()
+IF rc <> 0 THEN DO
+/* SAY 'Error reading CF$RFS$ RFS File. RC='rc */
+  EXIT rc
+END
+/* Temporary RFS file now longer needed, delete it.     */
+'RFS DELETE CF$RFS$.'USERID()
+/* Now process parameters from RFSLIB.CONFIG member.    */
+DO i = 1 TO DATA.0
+  INTERPRET STRIP(DATA.i)
+END
+ppath = 'FILE('RFSPANELPATH')'
+tuser = USERID()
+/* Now IMPORT RFSCOMP.CONFIG from PRD2.CONFIG       */
+ADDRESS REXXCICS 'CD'
+filepath = RESULT
+fullpath = filepath || 'CD$RFS$.'USERID()
+'IMPORT PRD2.CONFIG(RFSCOMP.CONFIG) 'fullpath
+IF rc <> 0 THEN DO
+/* SAY 'Error importing RFSCOMP.CONFIG from VSE library. RC='rc */
+  EXIT rc
+END
+/* Now read temporary RFS File into STEM for processing */
+'RFS DISKR CD$RFS$.'USERID()
+IF rc <> 0 THEN DO
+/* SAY 'Error reading CD$RFS$ RFS File. RC='rc */
+  EXIT rc
+END
+/* Temporary RFS file now longer needed, delete it.     */
+'RFS DELETE CD$RFS$.'USERID()
+/* Now process data from RFSCOMP.CONFIG.               */
+compcnt = 0
+DO i = 1 TO DATA.0
+  compcnt = compcnt + 1
+  compdata.compcnt = DATA.i
+END
+compdata.0 = compcnt
+rfscompd_msgline = ''
+rfscpan = 'rfscompd'
+rfsclin = 17
+start_over:
+DO i = 1 TO rfsclin
+  compd_stem1.i = ''
+END
+cattrib = ''
+cpf7 = 'PF7=BACKWARD'
+cpf8 = 'PF8=FORWARD'
+cfwd = 'N'
+cbwd = 'N'
+cpagenum = 1
+/**************************************************************/
+/* Now start 'FOREVER' loop to process display and user input */
+/**************************************************************/
+DO FOREVER
+  cattrib = ''
+  cstr_idx = cpagenum * rfsclin - (rfsclin - 1)
+  cend_idx = cpagenum * rfsclin
+  cs = FORMAT(cpagenum,3)
+  ctotalpages = TRUNC(compdata.0 / rfsclin)
+  ctotalpagesrnd = compdata.0 // rfsclin
+  IF ctotalpagesrnd > 0 THEN DO
+    ctotalpages = ctotalpages + 1
+  END
+  ce = FORMAT(ctotalpages,3)
+  DO q = cstr_idx TO cend_idx
+    cdisp_line = q // rfsclin
+    IF cdisp_line = 0 THEN cdisp_line = rfsclin
+    IF compdata.q <> 'COMPDATA.'q THEN DO
+      compd_stem1.cdisp_line = compdata.q
+    END
+    ELSE DO
+      compd_stem1.cdisp_line = ''
+    END
+  END
+  SELECT
+    WHEN cpagenum = 1 THEN DO
+      IF compdata.q = 'COMPDATA.'q THEN DO
+        cattrib = cattrib'AT(cpf7 INV) AT(cpf8 INV)'
+        'PANEL SEND 'rfscpan ppath cattrib
+        cfwd = 'N'
+        cbwd = 'N'
+      END
+      ELSE DO
+        cattrib = cattrib'AT(cpf7 INV)'
+        'PANEL SEND 'rfscpan ppath cattrib
+        cfwd = 'Y'
+        cbwd = 'N'
+      END
+    END
+    WHEN cpagenum > 1 THEN DO
+      IF compdata.q = 'COMPDATA.'q THEN DO
+        cattrib = cattrib'AT(cpf8 INV)'
+        'PANEL SEND 'rfscpan ppath cattrib
+        cfwd = 'N'
+        cbwd = 'Y'
+      END
+      ELSE DO
+        'PANEL SEND 'rfscpan ppath cattrib
+        cfwd = 'Y'
+        cbwd = 'Y'
+      END
+    END
+    OTHERWISE
+  END
+  IF rc > 4 THEN SIGNAL error
+  'PANEL RECEIVE 'rfscpan
+  IF rc > 4 THEN SIGNAL error
+  rfscompd_msgline = ''
+  /**********************************/
+  /* Process PF Keys and user input */
+  /**********************************/
+  SELECT
+    /* PF3 to exit */
+    WHEN pan.aid = 'PF3' THEN DO
+      EXIT 0
+    END
+    /* PF7 to page cbwd */
+    WHEN pan.aid = 'PF7' THEN DO
+      IF cbwd = 'Y' THEN DO
+        cpagenum = cpagenum - 1
+        IF cpagenum < 1 THEN cpagenum = 1
+      END
+      DROP x
+    END
+    /* PF8 to page cfwd */
+    WHEN pan.aid = 'PF8' THEN DO
+      IF cfwd = 'Y' THEN DO
+        cpagenum = cpagenum + 1
+      END
+      DROP x
+    END
+    OTHERWISE
+      rfscompd_msgline = 'USE ONLY THE ENTER KEY '
+      rfscompd_msgline = rfscompd_msgline'OR ONE OF THE KEYS '
+      rfscompd_msgline = rfscompd_msgline'LISTED ABOVE.'
+  END
+END
+EXIT 0
+RETURN 99
+error:
+SAY 'RFSHELP ERROR OCCURRED. LAST RC='rc
+'SENDE'
+EXIT

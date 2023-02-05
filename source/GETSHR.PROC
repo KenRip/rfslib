@@ -1,0 +1,20 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: GETSHR.PROC                                               */
+/*********************************************************************/
+/* Exec to copy from POOL1:\USERS\SHARED to current RFS library      */
+ARG in
+IF LENGTH(in) <> 0 THEN DO
+  IF POS(':',in) = 0 THEN DO
+    'RFS COPY POOL1:\USERS\SHARED\'in' 'in
+    SAY 'File 'in' copied from POOL1:\USERS\SHARED.'
+  END
+  ELSE DO
+    SAY 'Input Paramter should only contain ''member.type'''
+  END
+END
+ELSE DO
+  SAY 'Input Paramter Required.  Please specify ''member.type'''
+END

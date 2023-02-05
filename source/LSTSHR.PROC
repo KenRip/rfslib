@@ -1,0 +1,13 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: LSTSHR.PROC                                               */
+/*********************************************************************/
+/* Exec to list all file in POOL1:\USERS\SHARED                      */
+SAY 'Directory Listing for RFS DIR POOL1:\USERS\SHARED'
+SAY '==================================================================='
+'DIR POOL1:\USERS\SHARED (LIST.'
+DO i = 1 TO LIST.0
+  SAY LIST.i
+END

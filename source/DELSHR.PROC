@@ -1,0 +1,20 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: DELSHR.PROC                                               */
+/*********************************************************************/
+/* Exec to delete files in the POOL1:\USERS\SHARED folder            */
+ARG in
+IF LENGTH(in) <> 0 THEN DO
+  IF POS(':',in) = 0 THEN DO
+    'RFS DELETE POOL1:\USERS\SHARED\'in
+    SAY 'File 'in' delete in POOL1:\USERS\SHARED.'
+  END
+  ELSE DO
+    SAY 'Input Paramter should only contain ''member.type'''
+  END
+END
+ELSE DO
+  SAY 'Input Paramter Required.  Please specify ''member.type'''
+END

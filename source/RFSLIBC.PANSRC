@@ -1,0 +1,34 @@
+.DEFINE < turq protect
+.DEFINE @ turq skip
+.DEFINE ! white protect
+.DEFINE ~ green protect
+.DEFINE > green unprotect underline
+.DEFINE ^ var compileproc
+.DEFINE # var compo_stem.
+.DEFINE % var comps_stem.
+.PANEL rfslibc
+<RFSLIBC               !COMPILE JOB GENERATION
+<
+<LIBRARY:!&rfsdir
+<
+<SOURCE MEMBER.....~&srcfilename     @  filename.filetype
+<
+<
+<   COMPILE........>^@    !#<%       < !#<%       < !#<%       <
+<                         !#<%       < !#<%       < !#<%       <
+<                         !#<%       < !#<%       < !#<%       <
+<                         !#<%       < !#<%       < !#<%       <
+<                         !#<%       < !#<%       < !#<%       <
+<                         !#<%       < !#<%       < !#<%       <
+<                         !#<%       < !#<%       < !#<%       <
+<                         !#<%       < !#<%       < !#<%       <
+<                         !#<%       < !#<%       < !#<%       <
+<                         !#<%       < !#<%       < !#<%       <
+<                         !#<%       < !#<%       < !#<%       <
+<                         !#<%       < !#<%       < !#<%       <
+<
+<PF1=HELP                    PF3=END
+<
+!&rfslibc_msgline
+<
+.PANEL

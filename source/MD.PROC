@@ -1,0 +1,36 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: MD.PROC                                                   */
+/*********************************************************************/
+/* Exec to make a directory in the current RFS library               */
+ARG in
+IF LENGTH(in) <> 0 THEN DO
+  IF POS(':',in) = 0 THEN DO
+    'RFS MKDIR 'in
+    IF rc <> 0 THEN DO
+      IF rc = 115 THEN DO
+        SAY 'MD Command failed (Directory already exists), rc='rc
+      END
+      ELSE DO
+        SAY 'MD Command failed, rc='rc
+      END
+    END
+    ELSE DO
+      'RFS AUTH 'in' SECURED'
+      IF rc <> 0 THEN DO
+        SAY 'MD Command (AUTH) failed, rc='rc
+      END
+      ELSE DO
+        SAY 'Directory 'in' created.'
+      END
+    END
+  END
+  ELSE DO
+    SAY 'Input Paramter should only contain ''directoryname'''
+  END
+END
+ELSE DO
+  SAY 'Input Paramter Required.  Please specify ''directoryname'''
+END

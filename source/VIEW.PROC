@@ -1,0 +1,27 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: VIEW.PROC                                                 */
+/*********************************************************************/
+/* Exec to copy input file to VIEWONLY.userid, edit it and           */
+/* delete it.                                                        */
+/* TRACE ?ALL */
+ARG in
+tpath = 'POOL1:\USERS\'USERID()'\'in
+IF LENGTH(in) <> 0 THEN DO
+  IF POS(':',in) = 0 THEN DO
+    'RFS MKDIR 'tpath
+    'RFS COPY 'in' 'tpath'\****VIEW.ONLY****'
+    filename = tpath'\****VIEW.ONLY****'
+    CALL CICEDIT filename
+    'RFS DELETE 'tpath'\****VIEW.ONLY****'
+    'RFS RDIR 'tpath
+  END
+  ELSE DO
+    SAY 'Input Paramter should only contain ''member.type'''
+  END
+END
+ELSE DO
+  SAY 'Input Paramter Required.  Please specify ''member.type'''
+END

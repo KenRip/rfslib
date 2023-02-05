@@ -1,0 +1,20 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: RULER.PROC                                                */
+/*********************************************************************/
+/* EDIT Macro to display a ruler on the screen                       */
+ARG line option
+lead = '>'||FORMAT(line,4)||' '
+r='----+----1----+----2----+----3----+----4----+----5----+----6----+----7-|'
+ruler = lead||r
+ADDRESS EDITSVR
+IF option <> 'OFF' THEN DO
+  'SET RESERVED 'line' HIGH 'ruler
+END
+ELSE DO
+  'SET RESERVED 'line' OFF'
+END
+DO i=1 TO 20
+END

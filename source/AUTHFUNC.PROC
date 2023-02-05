@@ -1,0 +1,76 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: AUTHFUNC.PROC                                             */
+/*********************************************************************/
+/* This program is a minumal version of this module to bypass using  */
+/* external security checks.                                         */
+/*                                                                   */
+/* Current FUNCTIONS supported are...                                */
+/*   SUBMIT    :Null... does not query ESM.                          */
+/*   JOBCARD   :Null... does not query ESM.                          */
+/*   JCLID     :Null... does not query ESM.                          */
+/*   PRINT     :Null... does not query ESM.                          */
+/*   LIBRP     :Null... does not query ESM.                          */
+/*   LIBRC     :Null... does not query ESM.                          */
+/*   PASSWORD  :Returns the USERID's Password from the IESCNTL File. */
+/*                                                                   */
+/*********************************************************************/
+/*********************************************************************/
+/* TRACE ALL */
+ARG in
+tuser = USERID()
+SELECT
+  WHEN in = 'SUBMIT' THEN DO
+    RETURN 0
+  END
+  WHEN in = 'PRINT' THEN DO
+    RETURN 0
+  END
+  WHEN in = 'JOBCARD' THEN DO
+    RETURN 0
+  END
+  WHEN in = 'JCLID' THEN DO
+    RETURN 0
+  END
+  WHEN in = 'LIBRP' THEN DO
+    RETURN 0
+  END
+  WHEN in = 'LIBRC' THEN DO
+    RETURN 0
+  END
+  WHEN in = 'PASSWORD' THEN DO
+    CALL get_iescntl
+    IF RESULT <> 0 THEN DO
+      RETURN 99  /* IESCNTL error    */
+    END
+    RETURN password
+  END
+  OTHERWISE
+    RETURN 0
+END
+RETURN 0
+/* END Mainline Code */
+get_iescntl:
+/* Procedure to retrieve User info from the IESCNTL file */
+tablei = '001020304050607080902131415161718191'X
+tablei = tablei || '122232425262728292132333435363738393'X
+tablei = tablei || '0B3FB8C8BA'X
+tableo = '0123456789STUVWXYZJKLMNOPQRABCDEFGHI  #@$'
+/* Set up key to IESCNTL file record */
+iescntl_type = 'US'
+iescntl_user = LEFT(USERID(),8,'00'X)
+iescntl_pad = '0000'X
+key = iescntl_type || iescntl_user || iescntl_pad
+IESCNTL = 'IESCNTL'
+record = ''
+'CICS READ FILE(IESCNTL) INTO(record) RIDFLD(key)'
+IF rc <> 0 THEN DO
+  SAY 'Error reading IESCNTL file. rc='rc
+  RETURN 14
+END
+/* Current password at offset 43 in IESCNTL file US* record */
+coded_password = SUBSTR(record,43,8)
+password = TRANSLATE(coded_password,tableo,tablei)
+RETURN 0

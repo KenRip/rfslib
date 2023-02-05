@@ -1,0 +1,242 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: RFSICCFP.PROC                                             */
+/*********************************************************************/
+/* Exec to punch and ICCF member from an ICCF library to CICS/REXX   */
+/* RFS member.                                                       */
+/*                                                                   */
+/*********************************************************************/
+TRACE OFF
+CALL RFSAUTH ICCFP
+IF RESULT <> 0 THEN DO
+  SAY '*NOT AUTHORIZED TO USE THE ICCFP FUNCTION'
+  PARSE EXTERNAL dummy
+  EXIT 8
+END
+ARG iccf_lib iccf_member rfsfileid opt
+rfsfileid = STRIP(rfsfileid,'B')
+IF LENGTH(opt) <> 0 THEN UPPER opt
+IF LENGTH(iccf_lib) = 0 THEN DO
+  SAY '*MANDATORY OPERAND MISSING; CORRECT SYNTAX IS:'
+  SAY ' '
+  SAY 'ICCFP iccflib iccfmem <rfsfileid>'
+  SAY '      -------'
+  PARSE EXTERNAL dummy
+  EXIT 8
+END
+IF LENGTH(iccf_member) = 0 THEN DO
+  SAY '*MANDATORY OPERAND MISSING; CORRECT SYNTAX IS:'
+  SAY ' '
+  SAY 'ICCFP iccflib iccfmem <rfsfileid>'
+  SAY '              -------'
+  PARSE EXTERNAL dummy
+  EXIT 8
+END
+IF LENGTH(rfsfileid) = 0 THEN DO
+  SAY '*OPTIONAL OPERAND MISSING:'
+  SAY ' '
+  SAY 'ICCFP iccflib iccfmem <rfsfileid>'
+  SAY '                       ---------'
+  SAY 'RFSFILEID ASSUMED TO BE - ' || iccf_member
+  PARSE EXTERNAL dummy
+  rfsfileid = iccf_member
+END
+/* Now IMPORT RFSLIB.CONFIG from PRD2.CONFIG to     */
+/* obtain default settings for RFSLIB environment.  */
+configlib = 'PRD2.CONFIG'
+ADDRESS REXXCICS 'CD'
+filepath = RESULT
+fullpath = filepath || 'CF$RFS$.'USERID()
+'IMPORT 'configlib'(RFSLIB.CONFIG) 'fullpath
+IF rc <> 0 THEN DO
+/* SAY 'Error importing RFSLIB.CONFIG from VSE library. RC='rc */
+  EXIT rc
+END
+/* Now read temporary RFS File into STEM for processing */
+'RFS DISKR CF$RFS$.'USERID()
+IF rc <> 0 THEN DO
+/* SAY 'Error reading CF$RFS$ RFS File. RC='rc */
+  EXIT rc
+END
+/* Temporary RFS file now longer needed, delete it.     */
+'RFS DELETE CF$RFS$.'USERID()
+/* Now process parameters from RFSLIB.CONFIG member.    */
+DO i = 1 TO DATA.0
+  INTERPRET STRIP(DATA.i)
+END
+dtsvol = DTSFILEVOLUME
+/* Now get current RFS path to use in RFS IMPORT command */
+ADDRESS REXXCICS 'CD'
+filepath = RESULT
+fullpath = filepath || rfsfileid
+/* Now check if the RFS member already exists            */
+IF opt <> 'REPLACE' THEN DO
+  'RFS CKFILE 'fullpath
+  IF rc=0 THEN DO
+    SAY '*ERROR; FILE ALREADY EXISTS - PLEASE SPECIFY "REPLACE"'
+    PARSE EXTERNAL opt
+    IF LENGTH(opt) <> 0 THEN UPPER opt
+    IF opt <> 'REPLACE' THEN EXIT 0
+  END
+END
+RFSICCFP_result = 0
+/* Delete previous output file if it exists */
+'PSEUDO OFF'
+'TERMID'
+rpt_user = USERID() || TERMID
+/* Generate a Random ID to be used to verify job output later */
+rpt_ID = rpt_user || RANDOM(1,99999,TIME('S'))
+CALL RFSSKEL RFSICCFP rpt_user rpt_ID iccf_lib iccf_member dtsvol
+IF RESULT <> 0 THEN DO
+  /* Exit with 90 - Error occurred processing Skeleton. */
+  RFSICCFP_result = 90
+  SIGNAL error
+END
+ELSE DO
+  temp_member = 'SK$TEMP$.'USERID()
+  CALL RFSSUBMT temp_member SILENT
+  IF RESULT <> 0 THEN DO
+    /* Exit with 91 - Error during SUBMIT processing. */
+    RFSICCFP_result = 91
+    SIGNAL error
+  END
+  ELSE DO
+    'RFS DELETE SK$TEMP$.'USERID()
+  END
+END
+rpt_token = ''
+rpt_class = 'Y'
+rpt_record = ''
+rpt_delay = 1
+rpt_wait = 0
+rpt_wait_cnt = 0
+DO WHILE rpt_wait = 0
+  'CICS DELAY FOR SECONDS(rpt_delay)'
+  rpt_wait_cnt = rpt_wait_cnt + 1
+  IF rpt_wait_cnt > 9 THEN DO
+    rpt_wait = 1
+    /* Exit with 99 - Report NOTFND and DELAY exceeded. */
+    RFSICCFP_result = 99
+  END
+  'CICS SPOOLOPEN INPUT TOKEN(rpt_token) CLASS(rpt_class)
+   USERID(rpt_user) PRINT'
+  IF rc = 0 THEN DO
+    readrc = 0
+    reccnt = 0
+    rulercnt = 0
+    prev_blank = 0
+    end_mem = 0
+    DATA = ''
+    DO WHILE readrc = 0
+      'CICS SPOOLREAD INTO(rpt_record) TOKEN(rpt_token)
+       MAXFLENGTH(133) TOFLENGTH(rpt_len)'
+      IF rc = 0 THEN DO
+        /* Parse data here to only select ICCF member data */
+        SELECT
+          WHEN rpt_len = 100 THEN DO
+            PARSE VAR rpt_record . . ret_user tmp_ID .
+            PARSE VAR tmp_ID . '=' ret_ID
+            IF ret_user = rpt_user THEN DO
+              IF ret_ID <> rpt_ID THEN DO
+                readrc = 1
+              END
+              ELSE DO
+                rpt_wait = 1
+              END
+            END
+            ELSE DO
+              readrc = 1
+            END
+          END
+          WHEN rpt_len = 121 THEN DO
+            rulercnt = rulercnt + 1
+            IF rulercnt < 2 THEN DO
+              mem_data = 0
+            END
+            ELSE DO
+              IF end_mem = 0 THEN mem_data = 1
+            END
+          END
+          WHEN rpt_len = 2 THEN DO
+            skip_record = 0
+            IF mem_data <> 1 THEN skip_record = 1
+            IF skip_record = 0 THEN DO
+              reccnt = reccnt + 1
+              DATA.reccnt = SUBSTR(rpt_record,2,1,' ')
+              rpt_len = 0
+              rpt_record = ''
+              prev_blank = 1
+            END
+          END
+          WHEN rpt_len = 119 THEN DO
+            IF prev_blank = 1 THEN DO
+              reccnt = reccnt - 1
+            END
+          END
+          WHEN rpt_len = 116 THEN DO
+            skip_record = 0
+            IF mem_data <> 1 THEN skip_record = 1
+            IF skip_record = 0 THEN DO
+              reccnt = reccnt + 1
+              DATA.reccnt = SUBSTR(rpt_record,2,81,' ')
+              rpt_len = 0
+              rpt_record = ''
+              prev_blank = 0
+            END
+          END
+          WHEN rpt_len < 82 THEN DO
+            skip_record = 0
+            IF mem_data <> 1 THEN skip_record = 1
+            td = SUBSTR(rpt_record,2,10)
+            IF td = '*END PRINT' THEN DO
+              skip_record = 1
+              rpt_wait = 1
+              mem_data = 0
+              end_mem = 1
+            END
+            IF skip_record = 0 THEN DO
+              reccnt = reccnt + 1
+              DATA.reccnt = SUBSTR(rpt_record,2,81,' ')
+              rpt_len = 0
+              rpt_record = ''
+              prev_blank = 0
+            END
+          END
+          OTHERWISE
+        END
+      END
+      ELSE DO
+        SELECT
+          WHEN rc = 20 THEN DO
+          END
+          OTHERWISE
+            /* Exit with 92 - SPOOLREAD failed. */
+            RFSICCFP_result = 92
+        END
+        readrc = rc
+      END
+    END
+    'CICS SPOOLCLOSE TOKEN(rpt_token) DELETE'
+    DATA.0 = reccnt
+    'RFS DISKW 'rfsfileid
+    IF rc <> 0 THEN DO
+      /* Exit with 94 - RFS DISKW failed. */
+      RFSICCFP_result = 94
+    END
+  END
+  ELSE DO
+    SELECT
+      WHEN rc = 13 THEN DO
+        /* NOTFND */
+      END
+      OTHERWISE
+        /* Exit with 93 - SPOOLOPEN failed. */
+        RFSICCFP_result = 93
+        rpt_wait = 1
+    END
+  END
+END
+error:
+RETURN RFSICCFP_result

@@ -1,0 +1,777 @@
+TEMPLATE................................................................
+RFSLIB  ******************* RFSLIB Main Help ***************************
+RFSLIB
+RFSLIB  The RFSLIB product is an extension of the CICS/REXX support
+RFSLIB  already provided by IBM free of charge with the IBM CICS
+RFSLIB  Transaction Server for VSE/ESA V1.1.1 product.
+RFSLIB
+RFSLIB  The RFSLIB main screen is a member listing and selection
+RFSLIB  screen similar to that provided by IBM in the z/VSE
+RFSLIB  Interactive Interface for accessing an ICCF Library.  This
+RFSLIB  main screen provides a directory listing of the contents of
+RFSLIB  the current CICS/REXX File System (or RFS) directory.  From
+RFSLIB  this directory listing the user can select members for
+RFSLIB  viewing and editing as well as several other functions.  In
+RFSLIB  addition a Command Line area is available for accessing
+RFSLIB  specific commands which have been provided to add functions
+RFSLIB  and features to the CICS/REXX environment.
+RFSLIB
+RFSLIB  The screen is broken into several areas.  These are...
+RFSLIB
+RFSLIB  TOP AREA
+RFSLIB  ========
+RFSLIB  The top of the screen contains a list of selections
+RFSLIB  available which can be placed in the prefix area in
+RFSLIB  front of a file or directory to perfrom a specific
+RFSLIB  operation.  These include...
+RFSLIB
+RFSLIB  1=EDIT
+RFSLIB  Open the selected file in the CICS/REXX full screen
+RFSLIB  editor.  This editor is very close in function and
+RFSLIB  features to the VM/CMS XEDIT editor. More information on
+RFSLIB  the Editor can be obtained by entering "HELP EDITOR"
+RFSLIB  in the Command Line area. The editor can also be tailored
+RFSLIB  to an individual user's preferences.  The user can create
+RFSLIB  a file in their "home" directory called EDITPROF.EXEC which
+RFSLIB  can contain CICS/REXX commands that can be used to
+RFSLIB  customize the editor.
+RFSLIB  For example...
+RFSLIB  ADDRESS EDITSVR
+RFSLIB  'SET CASE MIXED RESPECT'
+RFSLIB  'SYNONYM BOT BOTTOM'
+RFSLIB
+RFSLIB  Please see your System Administrator for more information.
+RFSLIB
+RFSLIB  2=CHANGETO
+RFSLIB  This option is only available against a directory and
+RFSLIB  allows for changing the current directory to the
+RFSLIB  the selected directory.  Once selected the display
+RFSLIB  will refresh to now provide a directory listing of the
+RFSLIB  selected directory.
+RFSLIB
+RFSLIB  3=PRINT
+RFSLIB  This option is only available against files (not
+RFSLIB  directories) and spools a copy of the selected file to
+RFSLIB  the VSE POWER List Queue for printing.  The attributes
+RFSLIB  used to spool the data to VSE POWER can be controlled
+RFSLIB  by the user.  The default values are specified by the
+RFSLIB  System Administrator in the RFSLIB.CONFIG member. The
+RFSLIB  user can override there own default values by creating a
+RFSLIB  file in the "home" directory called PRINT.PROFILE.
+RFSLIB  The PRINT.PROFILE file can contain any of the
+RFSLIB  following statements...
+RFSLIB
+RFSLIB  NAME = nnnnnnnn
+RFSLIB  CLASS = c
+RFSLIB  DISP = d
+RFSLIB  PRI = p
+RFSLIB  DEST = dddddddd
+RFSLIB  FORM = ffff
+RFSLIB
+RFSLIB  Please see your System Administrator for more information.
+RFSLIB
+RFSLIB  4=COPY/MOVE
+RFSLIB  This option provides the user the ability to perform a
+RFSLIB  COPY or MOVE operation against a file.  A separate
+RFSLIB  panel screen is displayed providing the user with
+RFSLIB  the option to select the target filename and folder of
+RFSLIB  the COPY or MOVE operation.
+RFSLIB
+RFSLIB  5=DELETE
+RFSLIB  This option allows for the deletion of the selected
+RFSLIB  file or directory.  Please note that a delete can not
+RFSLIB  be performed on a directory that contains any files.
+RFSLIB
+RFSLIB  6=RENAME
+RFSLIB  This option allows the user to rename the selected
+RFSLIB  file or directory.  The NEWNAME (and optionally the
+RFSLIB  NEWTYPE) field is required.
+RFSLIB
+RFSLIB  7=SUBMIT
+RFSLIB  This option allows the user to submit the selected
+RFSLIB  file to the VSE POWER Reader Queue for execution. This
+RFSLIB  option can only be performed against files with the
+RFSLIB  FILETYPE of "JCL".  In addition this option requires
+RFSLIB  special security permissions to be authorized to submit
+RFSLIB  jobs to the VSE POWER Reader Queue.  Additional security
+RFSLIB  permissions are needed if the JECL JOBCARD contains a SEC,
+RFSLIB  FROM or LDEST parameter or if the VSE JCL contains a
+RFSLIB  "// ID" statement.
+RFSLIB
+RFSLIB  8=COMPILE
+RFSLIB  This option provides the user the ability to perform
+RFSLIB  one of the available programming language functions.
+RFSLIB  A separate panel screen is displayed presenting the
+RFSLIB  user with the options available.  These options are
+RFSLIB  installation specific.  This option requires special
+RFSLIB  security permissions as well because it involves generating
+RFSLIB  and subimtting JCL to VSE POWER for execution. Please contact
+RFSLIB  your System Administrator for more information.
+RFSLIB
+RFSLIB  9=DISPLAY
+RFSLIB  This option allows the user to select the member for
+RFSLIB  display.  The dislay function provides all the
+RFSLIB  functions of the CICS/REXX Full Screen Editor but does
+RFSLIB  not allow the user to save the current file.
+RFSLIB
+RFSLIB  COMMANE LINE AREA
+RFSLIB  =================
+RFSLIB  The Command Line area allows the user to enter
+RFSLIB  available commands for execution.  More information on
+RFSLIB  the commands available can be obtained by entering
+RFSLIB  "HELP COMMANDS" in the Command Line area.
+RFSLIB
+RFSLIB  MAIN DIRECTORY LIST
+RFSLIB  ===================
+RFSLIB  The main directory list area shows the list of files and
+RFSLIB  directories found in the current RFS directory.  Each
+RFSLIB  line in this area contains the FILENAME and optional
+RFSLIB  FILETYPE of each file or directory along with the DATE
+RFSLIB  and TIME the file or directory was last updated and the
+RFSLIB  SIZE of the file in records.
+RFSLIB
+RFSLIB  Please note that the directory listing can be sorted in
+RFSLIB  several different ways.  The current sort option and
+RFSLIB  order is displayed below the column heading area. More
+RFSLIB  information on how to control the sort order can be
+RFSLIB  found below in the PF Key descriptions.
+RFSLIB
+RFSLIB  PF KEY LABEL AREA
+RFSLIB  =================
+RFSLIB  The PF Key label area displays the available PF Keys to
+RFSLIB  the user.  These include the following.
+RFSLIB
+RFSLIB  PF1=HELP
+RFSLIB  Provides access to the available help panels.
+RFSLIB
+RFSLIB  PF2=REFRESH
+RFSLIB  Refreshes the current directory listing displayed.
+RFSLIB
+RFSLIB  PF3=END
+RFSLIB  Exits the RFSLIB product and returns to either CICS
+RFSLIB  or the z/VSE Interactive Interface.
+RFSLIB
+RFSLIB  PF4=UP ONE DIR
+RFSLIB  This allows the user to move up one directory in the
+RFSLIB  CICS/REXX File System.  The RFS is a hierarchical
+RFSLIB  file system similar to the file system found on a
+RFSLIB  Windows or Linux based PC.
+RFSLIB
+RFSLIB  PF6=NEW MEM/DIR
+RFSLIB  This allows the user to create a new file (or
+RFSLIB  member) or a new directory.  A separate panel screen
+RFSLIB  is displayed.
+RFSLIB
+RFSLIB  PF7=BACKWORD PF8=FORWARD
+RFSLIB  Allows the user to page backward and forward through
+RFSLIB  the current RFS directory listing.  These PF keys
+RFSLIB  are only available when the directory listing
+RFSLIB  contains more data than fits on a single screen.
+RFSLIB
+RFSLIB  PF9=SORT.DATE
+RFSLIB  Sorts the directory listing in DATE/TIME order. When
+RFSLIB  this key is pressed it will re-sort the display in
+RFSLIB  DATE/TIME order.  Initially this will be in
+RFSLIB  descending order showing the most recently accessed
+RFSLIB  files and directories at the top of the list.  If
+RFSLIB  this PF Key is pressed again the sort order will be
+RFSLIB  reversed to ascending order showing the oldest files
+RFSLIB  and directories at the top of the list.
+RFSLIB
+RFSLIB  PF10=SORT.NAME
+RFSLIB  Sorts the directory listing in FILENAME order. When
+RFSLIB  this key is pressed it will re-sort the display in
+RFSLIB  FILENAME order.  Initially this will be in
+RFSLIB  ascending order.  If this PF Key is pressed again
+RFSLIB  the sort order will be reversed to descending order.
+RFSLIB
+RFSLIB  PF11=SORT.SIZE
+RFSLIB  Sorts the directory listing base on file SIZE. When
+RFSLIB  this key is pressed it will re-sort the display in
+RFSLIB  SIZE order showing the smallest files at the top of
+RFSLIB  the list.  Pressing this PF Key again will reverse
+RFSLIB  this sorting the listing showing the largest files
+RFSLIB  at the top of the list.
+RFSLIB
+RFSLIB  Please also note that the PF5 key is available and will
+RFSLIB  retrieve the last command entered in the Command Line
+RFSLIB  area at the top of the screen.  The last 25 commands
+RFSLIB  entered are retained.  Hitting the PF5 key multiple
+RFSLIB  times will retreive the next oldest command entered
+RFSLIB  from the command history.
+RFSLIB
+RFSLIB  FILENAME PREFIX AREA
+RFSLIB  ====================
+RFSLIB  The FILENAME PREFIX selection can be used to limit the
+RFSLIB  displayed directory listing to only the files and
+RFSLIB  directories which start with the specified PREFIX.
+RFSLIB  Enter the desired PREFIX and hit PF2 to REFRESH the
+RFSLIB  display.
+RFSCMDS ******************* RFSLIB Commands ****************************
+RFSCMDS
+RFSCMDS The RFSLIB Command Line provides access to several
+RFSCMDS important commands.  Please note that all commands
+RFSCMDS require special security permissions in order to be able
+RFSCMDS to execute them.  Please see your System Administrator for
+RFSCMDS more information.
+RFSCMDS
+RFSCMDS The supported commands include the following...
+RFSCMDS
+RFSCMDS CD (Change Directory)
+RFSCMDS =====================
+RFSCMDS The CD command can be used to change the current RFS
+RFSCMDS directory directly to the specified directory. The format
+RFSCMDS is as follows...
+RFSCMDS
+RFSCMDS CD dddddddd
+RFSCMDS
+RFSCMDS Where "dddddddd" can be either a fully qualified directory
+RFSCMDS name (for example "POOL1:\USERS\SYSA") or a subdirectory
+RFSCMDS of the current directory (without the qualifying higher
+RFSCMDS directory names and pool name).  In addition the RFS
+RFSCMDS directory can be specified using a shortcut to represent
+RFSCMDS moving up a directory level (for example ".\OPER" would
+RFSCMDS move up one directory level and then CD to the "OPER"
+RFSCMDS under the higher level directory).
+RFSCMDS
+RFSCMDS ICCFP
+RFSCMDS =====
+RFSCMDS The ICCFP command can be used to PUNCH ICCF library members
+RFSCMDS from ICCF to the CICS/REXX File System. The format of the
+RFSCMDS command is as follows...
+RFSCMDS
+RFSCMDS ICCFP iccflib iccfmember rfsfileid <option>
+RFSCMDS
+RFSCMDS Where "iccflib" is the ICCF library number, "iccfmember" is
+RFSCMDS the ICCF membername in that library and "rfsfileid" is the
+RFSCMDS target RFS filename. "option" can be specified as "REPLACE"
+RFSCMDS if the target RFS filename already exists and you'd like to
+RFSCMDS replace it.
+RFSCMDS
+RFSCMDS LIBRP
+RFSCMDS =====
+RFSCMDS The LIBRP command can be used to PUNCH VSE sublibrary
+RFSCMDS members from a VSE sublibrary to the CICS/REXX File System.
+RFSCMDS The format of the command is as follows...
+RFSCMDS
+RFSCMDS LIBRP l.s m.t rfsfileid <option>
+RFSCMDS
+RFSCMDS Where "l.s" is the VSE Library.Sublibrary (for example
+RFSCMDS PRD2.CONFIG), "m.t" is the membername.membertype and
+RFSCMDS "rfsfileid" is the target RFS filename. "option" can be
+RFSCMDS specified as "REPLACE" if the target RFS filename already
+RFSCMDS exists and you'd like to replace it.
+RFSCMDS
+RFSCMDS Please note that the user must have "READ" access to the
+RFSCMDS specified VSE sublibrary member.
+RFSCMDS
+RFSCMDS LIBRC
+RFSCMDS =====
+RFSCMDS The LIBRC command can be used to CATALOG an RFS file into a
+RFSCMDS VSE sublibrary member. The format of the command is as
+RFSCMDS follows...
+RFSCMDS
+RFSCMDS LIBRC l.s m.t rfsfileid
+RFSCMDS
+RFSCMDS Where "l.s" is the VSE Library.Sublibrary (for example
+RFSCMDS PRD2.CONFIG), "m.t" is the membername.membertype and
+RFSCMDS "rfsfileid" is the source RFS file to be CATALOGed into the
+RFSCMDS specified VSE sublibrary member.
+RFSCMDS
+RFSCMDS Please note that the user must have "UPDATE" access to the
+RFSCMDS specified VSE sublibrary member.
+RFSCMDS
+RFSCMDS EXEC
+RFSCMDS ====
+RFSCMDS The EXEC command can be used to execute a CICS/REXX EXEC or
+RFSCMDS PROCedure. The format of the command is...
+RFSCMDS
+RFSCMDS EXEC xxxxxxxx
+RFSCMDS
+RFSCMDS Where "xxxxxxxx" is the name of the CICS/REXX EXEC or
+RFSCMDS PROCedure.  The EXEC or PROCedure must be in the current
+RFSCMDS CICS/REXX search chains.  For PROCedures this must also be
+RFSCMDS a VSE sublibrary specified in the LIBDEF PROC SEARCH list.
+RFSCMDS For more information please see your System Administrator.
+RFSCMDS
+RFSCMDS RESET
+RFSCMDS =====
+RFSCMDS The RFSLIB product adds support for RFS filename level
+RFSCMDS enqueue / dequeue support.  This prevents users from
+RFSCMDS editing the same member at the same time.  Under certain
+RFSCMDS circumstances (i.e. disconnecting your terminal while
+RFSCMDS editing an RFS file) the enqueue lock on an RFS file can
+RFSCMDS be left in the "locked" state.  The RESET command can be
+RFSCMDS used to release the RFS file enqueue lock.  The format of
+RFSCMDS the command is as follows...
+RFSCMDS
+RFSCMDS RESET rfsfileid
+RFSCMDS
+RFSCMDS Please note that this command is typically restricted to
+RFSCMDS the System Administrator or Security Administrator.  For
+RFSCMDS more information please contact your System Administrator.
+EDITOR  ************** CICS/REXX Full Screen Editor ********************
+EDITOR
+EDITOR  Overview
+EDITOR  ========
+EDITOR  The CICS/REXX Full Screen Editor is patterned after VM/CMS
+EDITOR  XEDIT. The editor is provided so data can be created,
+EDITOR  updated and viewed from within the CICS environment.
+EDITOR
+EDITOR  The CICS/REXX editor includes several prefix commands (for
+EDITOR  example: C, CC, M, MM, B, A, F, P) in common with the XEDIT
+EDITOR  editor.
+EDITOR
+EDITOR  While in an editor session, commands entered on the command
+EDITOR  line can be chained by placing a ";" between each command.
+EDITOR  Support is also provided for macros written in REXX. This
+EDITOR  lets you customize editor settings with a profile exec or
+EDITOR  add new commandes to the editor.
+EDITOR
+EDITOR  Screen Format
+EDITOR  =============
+EDITOR  The CICS/REXX Editor screen is laid out as follows...
+EDITOR
+EDITOR  The first line is reserved for the TITLE LINE and contains
+EDITOR  the following:
+EDITOR  - Full qualified RFS File ID
+EDITOR  - Column numbers
+EDITOR  - Displayed messages from the Editor
+EDITOR
+EDITOR  There are informational lines that let you know you have
+EDITOR  reached "*** TOP OF DATA ***" or "*** BOTTOM OF DATA ***".
+EDITOR
+EDITOR  The line which starts with "COMMAND ===>" is the Command
+EDITOR  Line where Editor commands can be entered or Editor macros
+EDITOR  can be invoked. The line immediately below the Command
+EDITOR  Line is concidered the "current line". This "current line"
+EDITOR  is highlighted and is significant for certain Editor
+EDITOR  commands.
+EDITOR
+EDITOR  The Data Lines area of the screen is used to display and
+EDITOR  edit your data. Each line in the Data Area contains a
+EDITOR  "prefix area" which typically displays the line number of
+EDITOR  each data line. Prefix Commands may be entered in this
+EDITOR  "prefix area".
+EDITOR
+EDITOR  Prefix Commands
+EDITOR  ===============
+EDITOR  Several prefix commands are provided by the Editor. These
+EDITOR  commands are entered in the prefix area and give you the
+EDITOR  ability to copy, move, delete and replicate lines on either
+EDITOR  an individual or a consecutive block basis.
+EDITOR
+EDITOR  Individual Line Commands
+EDITOR  ========================
+EDITOR  The folloing commands work with individual lines and consist
+EDITOR  of one character...
+EDITOR  '/' - Specify current line in file
+EDITOR  'I' - Insert a line
+EDITOR  'D' - Delete a line
+EDITOR  'C' - Copy a line
+EDITOR  'M' - Move a line
+EDITOR  'R' - Replicate a line
+EDITOR  '"' - Synonym for replicate
+EDITOR
+EDITOR  When you enter one of these commands in the prefix area of a
+EDITOR  line the command performs its respective function on that
+EDITOR  line. You can also append a number to the end of the prefix
+EDITOR  command. This acts as a replication factor. If number "5" is
+EDITOR  appended to the "I" command five lines are inserted into the
+EDITOR  file.
+EDITOR
+EDITOR  Consecutive Block Commands
+EDITOR  ==========================
+EDITOR  The following commands work with consecutive blocks of lines
+EDITOR  and consist of two characters...
+EDITOR  'DD' - Delete a block of lines
+EDITOR  'CC' - Copy a block of lines
+EDITOR  'MM' - Move a block of lines
+EDITOR  'RR' - Replicate a block of lines
+EDITOR  '""' - Synonym for block replicate
+EDITOR
+EDITOR  Block commands are processed in pairs. You place one command
+EDITOR  in the prefix area of the first line of the block and place
+EDITOR  the same command in the prefix area of the last line of the
+EDITOR  block.  For example to delete a block of lines place a "DD"
+EDITOR  in the prefix area of the first line of the block and a "DD"
+EDITOR  in the prefix area of the last line in the block. If this
+EDITOR  was done on lines 00001 and 00005 it would delete line 00001
+EDITOR  through 00005 inclusive.  The only block prefix command that
+EDITOR  allows a replication factor is the replicate command ('RR'
+EDITOR  or '""').  The replication factor must be specified with the
+EDITOR  first 'RR' replication command.
+EDITOR
+EDITOR  Destination Commands
+EDITOR  ====================
+EDITOR  The following commands are called destination commands...
+EDITOR  'A' - After
+EDITOR  'B' - Before
+EDITOR  'F' - Following
+EDITOR  'P' - Preceding
+EDITOR
+EDITOR  These commands are used in conjunction with the copy and move
+EDITOR  commands (both individual and consecutive block) to specify
+EDITOR  the placement of the resulting copy or move function.
+EDITOR
+EDITOR  Command Line Commands
+EDITOR  =====================
+EDITOR  The syntax and description for each of the Command Line
+EDITOR  commands follows...
+EDITOR
+EDITOR  BACKWARD
+EDITOR  ========
+EDITOR  |             +-1---+
+EDITOR  |>>--BAckward-+-----+----------------------------------------<<
+EDITOR  |             +-n---+
+EDITOR  |             +-*---+
+EDITOR
+EDITOR  BACKWARD scrolls backward toward the beginning of a file for a
+EDITOR  specified number of screen displays.
+EDITOR
+EDITOR  The default is 1 screen.
+EDITOR  'n' specifies the number of screen displays.
+EDITOR  '*' If you specify an asterick (*) the screen scrolls back to
+EDITOR  the top of the file.
+EDITOR
+EDITOR  BOTTOM
+EDITOR  ======
+EDITOR  |>>--BOTTOM--------------------------------------------------<<
+EDITOR
+EDITOR  BOTTOM scrolls to the bottom of the file.
+EDITOR
+EDITOR  CANCEL
+EDITOR  ======
+EDITOR  |>>--CANCEL--------------------------------------------------<<
+EDITOR
+EDITOR  CANCEL ends the current edit session without saving the
+EDITOR  changes.
+EDITOR
+EDITOR  CASE
+EDITOR  ====
+EDITOR  |         +--(1)--------------+
+EDITOR  |>>--CASE-+-------------------+------------------------------<<
+EDITOR  |         +-MIXED-+-RESPECT-+-+
+EDITOR  |         |       +-IGNORE--+ |
+EDITOR  |         |                   |
+EDITOR  |         +-UPPER-+-RESPECT-+-+
+EDITOR  |                 +-IGNORE--+
+EDITOR
+EDITOR  CASE sets the case translation and interpretation preferences.
+EDITOR
+EDITOR  UPPER - translates lowercase character to uppercase when
+EDITOR  entered.
+EDITOR  MIXED - performs no case translation and allows mixed case
+EDITOR  input.
+EDITOR  RESPECT - respects the case of each character while doing a
+EDITOR  search.
+EDITOR  IGNORE - ignores the case of each character while doing a
+EDITOR  search.
+EDITOR
+EDITOR  (1) the default is specified in the editor profile.
+EDITOR  Please see your System Administrator for more information.
+EDITOR
+EDITOR  CHANGE
+EDITOR  ======
+EDITOR  |>>--CHANGE--/string1/string2/--+-----+----------------------<<
+EDITOR  |                               +-ALL-+
+EDITOR
+EDITOR  CHANGE changes a sting in the file.
+EDITOR
+EDITOR  string1 - specifies the string being replaced.
+EDITOR  string2 - specifies the string that replaces string1.
+EDITOR  ALL - indicates that all occurrance on all lines of stirng1
+EDITOR  should be replaced by string2.
+EDITOR
+EDITOR  CMDLINE
+EDITOR  =======
+EDITOR  |>>--CMDLINE--+-TOP----+-------------------------------------<<
+EDITOR  |             +-BOTTOM-+
+EDITOR
+EDITOR  CMDLINE sets the Command Line display preference.
+EDITOR
+EDITOR  TOP - displays the Command Line on the second line of the
+EDITOR  screen.
+EDITOR  BOTTOM - displays the Command Line on the bottom of the screen.
+EDITOR
+EDITOR  CURLINE
+EDITOR  =======
+EDITOR  |>>--CURLINE--n----------------------------------------------<<
+EDITOR
+EDITOR  CURLINE sets the current line to the number specified (n).
+EDITOR
+EDITOR  DOWN
+EDITOR  ====
+EDITOR  |          +-1--+
+EDITOR  |>>--DOWN--+----+--------------------------------------------<<
+EDITOR  |          +-n--+
+EDITOR
+EDITOR  DOWN scrolls forward in the file.
+EDITOR
+EDITOR  The default is 1 line.
+EDITOR  n specifies the number of lines.
+EDITOR
+EDITOR  EDIT
+EDITOR  ====
+EDITOR  |          +-NONAME---+
+EDITOR  |>>--EDIT--+----------+--+--------------------+--------------<<
+EDITOR  |          +-fileid---+  +-(-MACRO-macroname--+
+EDITOR
+EDITOR  EDIT opens a new edit session from within the existing edit
+EDITOR  session.
+EDITOR
+EDITOR  If NONAME is specified (this is the default) a new file is
+EDITOR  created and opened in an edit session.
+EDITOR
+EDITOR  fileid - specifies the RFS file ID of the file to b edited.
+EDITOR
+EDITOR  MACRO macroname - specifies that the file to be opened or
+EDITOR  created will have the specified MACRO executed against it.
+EDITOR
+EDITOR  EXEC
+EDITOR  ====
+EDITOR  |>>--EXEC--REXXprogramname--+------------+-------------------<<
+EDITOR  |                           +-arguments--+
+EDITOR
+EDITOR  EXEC executes a REXX program within an editor session.
+EDITOR
+EDITOR  FILE
+EDITOR  ====
+EDITOR  |>>--FILE--+---------+---------------------------------------<<
+EDITOR  |          +-fileid--+
+EDITOR
+EDITOR  FILE saves the current file being edited.
+EDITOR
+EDITOR  The default is to save the current file as the defauls file ID.
+EDITOR  fileid - specifies the RFS file ID to save the current file to.
+EDITOR
+EDITOR  FIND
+EDITOR  ====
+EDITOR  |          +-previous_searchstring--+
+EDITOR  |>>--FIND--+------------------------+------------------------<<
+EDITOR  |          +-search_string----------+
+EDITOR
+EDITOR  FIND locates a string of text in the current editor file.
+EDITOR
+EDITOR  NOTE: The CASE command RESPECT option can effect the function
+EDITOR  of the FIND command.  For more information see the CASE command
+EDITOR  section above.
+EDITOR
+EDITOR  FORWARD
+EDITOR  ========
+EDITOR  |            +-1---+
+EDITOR  |>>--FORward-+-----+----------------------------------------<<
+EDITOR  |            +-n---+
+EDITOR  |            +-*---+
+EDITOR
+EDITOR  FORWARD scrolls forward toward the end of a file for a
+EDITOR  specified number of screen displays.
+EDITOR
+EDITOR  The default is 1 screen.
+EDITOR  'n' specifies the number of screen displays.
+EDITOR  '*' If you specify an asterick (*) the screen scrolls forward
+EDITOR  to the end of the file.
+EDITOR
+EDITOR  GET
+EDITOR  ===
+EDITOR  |>>--GET--fileid--------------------------------------------<<
+EDITOR
+EDITOR  GET imports an RFS file into the current edit session. The
+EDITOR  file is inserted after the current line.
+EDITOR
+EDITOR  fileid - specifies the RFS file ID of the file to import.
+EDITOR
+EDITOR  GETLIB
+EDITOR  ======
+EDITOR  |>>--GETLIB--lib.sublib(mem.type)---------------------------<<
+EDITOR
+EDITOR  GETLIB imports a member from a VSE sublibrary into the current
+EDITOR  edit session. The member is inserted after the current line.
+EDITOR
+EDITOR  lib.sublib(mem.type) specifies the VSE sublibrary and member
+EDITOR  to be imported.
+EDITOR
+EDITOR  JOIN
+EDITOR  ====
+EDITOR  |>>--JOIN---------------------------------------------------<<
+EDITOR
+EDITOR  JOIN joins two lines into one. It will join the line the
+EDITOR  cursor is on with the line immediately following it.
+EDITOR
+EDITOR  LEFT
+EDITOR  ====
+EDITOR  |          +-1--+
+EDITOR  |>>--LEFT--+----+-------------------------------------------<<
+EDITOR  |          +-n--+
+EDITOR
+EDITOR  LEFT scrolls left in the file.
+EDITOR
+EDITOR  The default is to scroll 1 character left.
+EDITOR  n specifies the number of characters to scroll.
+EDITOR  If you specify 0 for n you will scroll to the far left side.
+EDITOR
+EDITOR  MACRO
+EDITOR  =====
+EDITOR  |>>--MACRO--fileid------------------------------------------<<
+EDITOR
+EDITOR  MACRO calls a macro.
+EDITOR
+EDITOR  fileid specifies the RFS file ID of the macro you want to run.
+EDITOR
+EDITOR  NULLS
+EDITOR  =====
+EDITOR  |>>--NULLS--+-ON--+-----------------------------------------<<
+EDITOR  |           +-OFF-+
+EDITOR
+EDITOR  NULLS controls whether the fields on the screen will be
+EDITOR  written with training blanks or trainling nulls.
+EDITOR
+EDITOR  ON specifies that fields on the screen are written with
+EDITOR  trailing nulls.
+EDITOR  OFF specifies that fields on the screen are written with
+EDITOR  trailing blanks.
+EDITOR
+EDITOR  NUMBERS
+EDITOR  =======
+EDITOR  |>>--NUMbers--+-ON--+---------------------------------------<<
+EDITOR  |             +-OFF-+
+EDITOR
+EDITOR  NUMBERS sets the prefix area display preference.
+EDITOR
+EDITOR  ON specifies that sequential line numbers should be displayed
+EDITOR  in the prefix area.
+EDITOR  OFF specifies that equal signs should be displayed in the
+EDITOR  prefix area.
+EDITOR
+EDITOR  PFKEY
+EDITOR  =====
+EDITOR  |           +-(1)--+
+EDITOR  |>>--PFkey--+------+----------------------------------------<<
+EDITOR  |           +-text-+
+EDITOR
+EDITOR  PFKEY sets or processes a PF key.
+EDITOR  (1) if text is not specified the PF key is processed.
+EDITOR  text specifies the text that the PF key is set to.
+EDITOR
+EDITOR  PFKLINE
+EDITOR  =======
+EDITOR  |>>--PFKLINE--+-TOP----+------------------------------------<<
+EDITOR  |             +-BOTTOM-+
+EDITOR  |             +-n------+
+EDITOR  |             +-OFF----+
+EDITOR
+EDITOR  PFKLINE sets the PF key line display preferences.
+EDITOR
+EDITOR  TOP displays the PF key line at the top of the screen.
+EDITOR  BOTTOM displays the PF key line at the bottom of the screen.
+EDITOR  n specifies the line number on the screen where to display the
+EDITOR  PF key line.
+EDITOR  OFF removes the PF key line from the screen.
+EDITOR
+EDITOR  QQUIT
+EDITOR  =====
+EDITOR  |>>--QQUIT--------------------------------------------------<<
+EDITOR
+EDITOR  QQUIT ends the current edit session without saving changes.
+EDITOR
+EDITOR  QUIT
+EDITOR  ====
+EDITOR  |>>--QUIT---------------------------------------------------<<
+EDITOR
+EDITOR  QUIT ends the current edit session.  When the current file has
+EDITOR  been changed the editor does not let you exit until either a
+EDITOR  save is done or you enter the QQUIT command.
+EDITOR
+EDITOR  RESET
+EDITOR  =====
+EDITOR  |>>--RESET--------------------------------------------------<<
+EDITOR
+EDITOR  RESET terminates any pending prefix commands.
+EDITOR
+EDITOR  RIGHT
+EDITOR  =====
+EDITOR  |           +-1--+
+EDITOR  |>>--RIght--+----+------------------------------------------<<
+EDITOR  |           +-n--+
+EDITOR
+EDITOR  RIGHT scrolls right in the file.
+EDITOR
+EDITOR  The default is to scroll 1 character right.
+EDITOR  n specifies the number of characters to scroll.
+EDITOR
+EDITOR  SAVE
+EDITOR  ====
+EDITOR  |>>--SAVE--+---------+---------------------------------------<<
+EDITOR  |          +-fileid--+
+EDITOR
+EDITOR  SAVE saves the current file being edited.
+EDITOR
+EDITOR  The default is to save the current file as the defauls file ID.
+EDITOR  fileid - specifies the RFS file ID to save the current file to.
+EDITOR
+EDITOR  SORT
+EDITOR  ====
+EDITOR  |                  +-A--+  +-1-------+
+EDITOR  |>>--SORT--+-*--+--+----+--+---------+-----------------------<<
+EDITOR  |          +-n--+  +-D--+  +-fromcol-+
+EDITOR  |                          +-tocol---+
+EDITOR
+EDITOR  SORT sorts the lines from the current line down.
+EDITOR
+EDITOR  * specifies that all the lines from the current line to the end
+EDITOR  of the file are sorted.
+EDITOR  n specifies that n lines are sort from the current line down.
+EDITOR  A specifies that the lines are sorted in ascending order.  This
+EDITOR  is the default.
+EDITOR  D specifies that the lines are sorted in descending order.
+EDITOR  fromcol specifies that the lines are sorted based on the data
+EDITOR  beginning at this column. If you do not specify fromcol and
+EDITOR  tocol sorting begins at column 1.
+EDITOR  tocol specifies that the lines are sorted based on the data
+EDITOR  ending in this column.
+EDITOR
+EDITOR  SPLIT
+EDITOR  =====
+EDITOR  |>>--SPLIT---------------------------------------------------<<
+EDITOR
+EDITOR  SPLIT splits a line into two lines at the current cursor
+EDITOR  position.
+EDITOR
+EDITOR  STRIP
+EDITOR  =====
+EDITOR  |>>--STRIP---------------------------------------------------<<
+EDITOR
+EDITOR  STRIP strips the training blanks off all lines in the current
+EDITOR  file.
+EDITOR
+EDITOR  TOP
+EDITOR  ===
+EDITOR  |>>--TOP-----------------------------------------------------<<
+EDITOR
+EDITOR  TOP scrolls to the top of the file.
+EDITOR
+EDITOR  TRUNC
+EDITOR  =====
+EDITOR  |>>--TRUNC--column-------------------------------------------<<
+EDITOR
+EDITOR  TRUNC truncates each line of the current file to a given length.
+EDITOR
+EDITOR  column specifies the last column you want to keep.
+EDITOR
+EDITOR  UP
+EDITOR  ==
+EDITOR  |        +-1--+
+EDITOR  |>>--UP--+----+----------------------------------------------<<
+EDITOR  |        +-n--+
+EDITOR
+EDITOR  UP scrolls backward in the file.
+EDITOR
+EDITOR  The default is 1 line.
+EDITOR  n specifies the number of lines.
+EDITOR
+EDITOR  NOTE:
+EDITOR  More information on the CICS/REXX Full screen Editor can be
+EDITOR  found in Chapter 18 of the following IBM manual...
+EDITOR
+EDITOR  IBM CICS Transaction Server for VSE/ESA REXX Guide.
+EDITOR  IBM Publication Number SC34-5764-01.

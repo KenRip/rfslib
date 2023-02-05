@@ -1,0 +1,20 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: DELEXEC.PROC                                              */
+/*********************************************************************/
+/* Exec to delete execs to the POOL2:\EXECLIB RFS library            */
+ARG in
+IF LENGTH(in) <> 0 THEN DO
+  IF POS(':',in) = 0 THEN DO
+    'RFS DELETE POOL2:\EXECLIB\'in
+    SAY 'File 'in' delete in POOL2:\EXECLIB.'
+  END
+  ELSE DO
+    SAY 'Input Paramter should only contain ''member.type'''
+  END
+END
+ELSE DO
+  SAY 'Input Paramter Required.  Please specify ''member.type'''
+END

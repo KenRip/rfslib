@@ -1,0 +1,161 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: SKELETON.PROC                                             */
+/*********************************************************************/
+/* Exec to IMPORT a JCL skeleton from a VSE library member,          */
+/* perform limited symbolic substitution and save the result         */
+/* in an RFS file in the users home directory.                       */
+/*                                                                   */
+/* Symbolics values will be substituted into the skeleton            */
+/* members based on the syntax as follows.                           */
+/* - word1 will replace the string &&PARAM1 in skeleton.             */
+/* - word2 will replace the string &&PARAM2 in skeleton.             */
+/* - word3 will replace the string &&PARAM3 in skeleton.             */
+/* - word4 will replace the string &&PARAM4 in skeleton.             */
+/* - word5 will replace the string &&PARAM5 in skeleton.             */
+/* - word6 will replace the string &&PARAM6 in skeleton.             */
+/* - word7 will replace the string &&PARAM7 in skeleton.             */
+/* - word8 will replace the string &&PARAM8 in skeleton.             */
+/* - word9 will replace the string &&PARAM9 in skeleton.             */
+/*                                                                   */
+/* Output will be saved in the RFS file: SK$TEMP$.userid             */
+/*                                                                   */
+/*********************************************************************/
+skellib = 'PRD2.CONFIG'
+memtype = 'SKELETON'
+/*********************************************************************/
+ARG member symb
+IF LENGTH(member) = 0 THEN DO
+/* SAY 'Missing operand.  Membername required.' */
+  EXIT 8
+END
+/* Now let's parse the input variable symb.              */
+PARSE VAR symb p1 p2 p3 p4 p5 p6 p7 p8 p9 .
+/* Now get current RFS path to use in RFS IMPORT command */
+ADDRESS REXXCICS 'CD'
+filepath = RESULT
+fullpath = filepath || 'SK$TEMP$.'USERID()
+'IMPORT 'skellib'('member'.'memtype') 'fullpath
+IF rc <> 0 THEN DO
+/* SAY 'Error importing skeleton member from VSE library. RC='rc */
+  EXIT rc
+END
+/* Now read temporary RFS File into STEM for processing */
+'RFS DISKR SK$TEMP$.'USERID()
+IF rc <> 0 THEN DO
+/* SAY 'Error reading $TEMP RFS File. RC='rc */
+  EXIT rc
+END
+/* Temporary RFS file now longer needed, delete it.     */
+'RFS DELETE SK$TEMP$.'USERID()
+/* Now process symbolic substitution.                   */
+DO i = 1 TO DATA.0
+  sym = '&&PARAM1'
+  symr = p1
+  symlen = LENGTH(sym)
+  DO WHILE (POS(sym, DATA.i) <> 0)
+    l1 = POS(sym, DATA.i) - 1
+    l2 = LENGTH(DATA.i) - (POS(sym, DATA.i) + symlen)
+    part1 = SUBSTR(DATA.i, 1, l1)
+    part2 = SUBSTR(DATA.i, (POS(sym, DATA.i) + symlen), l2)
+    DATA.i = part1 || symr || part2
+    DATA.i = LEFT(DATA.i, 80)
+  END
+  sym = '&&PARAM2'
+  symr = p2
+  symlen = LENGTH(sym)
+  DO WHILE (POS(sym, DATA.i) <> 0)
+    l1 = POS(sym, DATA.i) - 1
+    l2 = LENGTH(DATA.i) - (POS(sym, DATA.i) + symlen)
+    part1 = SUBSTR(DATA.i, 1, l1)
+    part2 = SUBSTR(DATA.i, (POS(sym, DATA.i) + symlen), l2)
+    DATA.i = part1 || symr || part2
+    DATA.i = LEFT(DATA.i, 80)
+  END
+  sym = '&&PARAM3'
+  symr = p3
+  symlen = LENGTH(sym)
+  DO WHILE (POS(sym, DATA.i) <> 0)
+    l1 = POS(sym, DATA.i) - 1
+    l2 = LENGTH(DATA.i) - (POS(sym, DATA.i) + symlen)
+    part1 = SUBSTR(DATA.i, 1, l1)
+    part2 = SUBSTR(DATA.i, (POS(sym, DATA.i) + symlen), l2)
+    DATA.i = part1 || symr || part2
+    DATA.i = LEFT(DATA.i, 80)
+  END
+  sym = '&&PARAM4'
+  symr = p4
+  symlen = LENGTH(sym)
+  DO WHILE (POS(sym, DATA.i) <> 0)
+    l1 = POS(sym, DATA.i) - 1
+    l2 = LENGTH(DATA.i) - (POS(sym, DATA.i) + symlen)
+    part1 = SUBSTR(DATA.i, 1, l1)
+    part2 = SUBSTR(DATA.i, (POS(sym, DATA.i) + symlen), l2)
+    DATA.i = part1 || symr || part2
+    DATA.i = LEFT(DATA.i, 80)
+  END
+  sym = '&&PARAM5'
+  symr = p5
+  symlen = LENGTH(sym)
+  DO WHILE (POS(sym, DATA.i) <> 0)
+    l1 = POS(sym, DATA.i) - 1
+    l2 = LENGTH(DATA.i) - (POS(sym, DATA.i) + symlen)
+    part1 = SUBSTR(DATA.i, 1, l1)
+    part2 = SUBSTR(DATA.i, (POS(sym, DATA.i) + symlen), l2)
+    DATA.i = part1 || symr || part2
+    DATA.i = LEFT(DATA.i, 80)
+  END
+  sym = '&&PARAM6'
+  symr = p6
+  symlen = LENGTH(sym)
+  DO WHILE (POS(sym, DATA.i) <> 0)
+    l1 = POS(sym, DATA.i) - 1
+    l2 = LENGTH(DATA.i) - (POS(sym, DATA.i) + symlen)
+    part1 = SUBSTR(DATA.i, 1, l1)
+    part2 = SUBSTR(DATA.i, (POS(sym, DATA.i) + symlen), l2)
+    DATA.i = part1 || symr || part2
+    DATA.i = LEFT(DATA.i, 80)
+  END
+  sym = '&&PARAM7'
+  symr = p7
+  symlen = LENGTH(sym)
+  DO WHILE (POS(sym, DATA.i) <> 0)
+    l1 = POS(sym, DATA.i) - 1
+    l2 = LENGTH(DATA.i) - (POS(sym, DATA.i) + symlen)
+    part1 = SUBSTR(DATA.i, 1, l1)
+    part2 = SUBSTR(DATA.i, (POS(sym, DATA.i) + symlen), l2)
+    DATA.i = part1 || symr || part2
+    DATA.i = LEFT(DATA.i, 80)
+  END
+  sym = '&&PARAM8'
+  symr = p8
+  symlen = LENGTH(sym)
+  DO WHILE (POS(sym, DATA.i) <> 0)
+    l1 = POS(sym, DATA.i) - 1
+    l2 = LENGTH(DATA.i) - (POS(sym, DATA.i) + symlen)
+    part1 = SUBSTR(DATA.i, 1, l1)
+    part2 = SUBSTR(DATA.i, (POS(sym, DATA.i) + symlen), l2)
+    DATA.i = part1 || symr || part2
+    DATA.i = LEFT(DATA.i, 80)
+  END
+  sym = '&&PARAM9'
+  symr = p9
+  symlen = LENGTH(sym)
+  DO WHILE (POS(sym, DATA.i) <> 0)
+    l1 = POS(sym, DATA.i) - 1
+    l2 = LENGTH(DATA.i) - (POS(sym, DATA.i) + symlen)
+    part1 = SUBSTR(DATA.i, 1, l1)
+    part2 = SUBSTR(DATA.i, (POS(sym, DATA.i) + symlen), l2)
+    DATA.i = part1 || symr || part2
+    DATA.i = LEFT(DATA.i, 80)
+  END
+END
+/* Now rewrite temporary RFS File from STEM DATA.        */
+'RFS DISKW SK$TEMP$.'USERID()
+IF rc <> 0 THEN DO
+/* SAY 'Error writing $TEMP RFS File. RC='rc */
+  EXIT rc
+END
+RETURN 0

@@ -1,0 +1,89 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: RFSLIBRP.PROC                                             */
+/*********************************************************************/
+/* Exec to IMPORT a VSE sublibrary member to an RFS fileid.          */
+/* It is modelled after the ICCF LIBRP procedure.                    */
+/*                                                                   */
+/*********************************************************************/
+CALL RFSAUTH LIBRP
+IF RESULT <> 0 THEN DO
+  SAY '*NOT AUTHORIZED TO USE THE LIBRP FUNCTION'
+  PARSE EXTERNAL dummy
+  EXIT 8
+END
+ARG library_sublib member_type rfsfileid opt
+IF LENGTH(opt) <> 0 THEN UPPER opt
+rfsfileid = STRIP(rfsfileid,'B')
+IF LENGTH(library_sublib) = 0 THEN DO
+  SAY '*MANDATORY OPERAND MISSING; CORRECT SYNTAX IS:'
+  SAY ' '
+  SAY 'LIBRP l.s m.t <rfsfileid>'
+  SAY '      ---'
+  PARSE EXTERNAL dummy
+  EXIT 8
+END
+IF LENGTH(member_type) = 0 THEN DO
+  SAY '*MANDATORY OPERAND MISSING; CORRECT SYNTAX IS:'
+  SAY ' '
+  SAY 'LIBRP l.s m.t <rfsfileid>'
+  SAY '          ---'
+  PARSE EXTERNAL dummy
+  EXIT 8
+END
+IF LENGTH(rfsfileid) = 0 THEN DO
+  SAY '*OPTIONAL OPERAND MISSING:'
+  SAY ' '
+  SAY 'LIBRP l.s m.t <rfsfileid>'
+  SAY '               ---------'
+  SAY 'RFSFILEID ASSUMED TO BE - ' || member_type
+  PARSE EXTERNAL dummy
+  rfsfileid = member_type
+END
+/* Now get current RFS path to use in RFS IMPORT command */
+ADDRESS REXXCICS 'CD'
+filepath = RESULT
+fullpath = filepath || rfsfileid
+/* Now check if the RFS member already exists            */
+IF opt <> 'REPLACE' THEN DO
+  'RFS CKFILE 'fullpath
+  IF rc=0 THEN DO
+    SAY '*ERROR; FILE ALREADY EXISTS - PLEASE SPECIFY "REPLACE"'
+    PARSE EXTERNAL opt
+    IF LENGTH(opt) <> 0 THEN UPPER opt
+    IF opt <> 'REPLACE' THEN EXIT 0
+  END
+END
+'IMPORT 'library_sublib'('member_type') 'fullpath
+SELECT
+  WHEN rc=0 THEN DO
+    EXIT 0
+  END
+  WHEN rc=1723 THEN DO
+    SAY '*ERROR; INVALID RFSFILEID; RC='rc
+  END
+  WHEN rc=1724 THEN DO
+    SAY '*ERROR; INVALID RFSFILEID; RC='rc
+  END
+  WHEN rc=1733 THEN DO
+    SAY '*ERROR; INVALID VSE LIBRARY OR MEMBERNAME; RC='rc
+  END
+  WHEN rc=1736 THEN DO
+    SAY '*ERROR; CICSECX1 LINK FAILED; RC='rc
+  END
+  WHEN rc=1738 THEN DO
+    SAY '*ERROR; INVALID VSE LIBRARY OR MEMBERNAME; RC='rc
+  END
+  WHEN rc=1744 THEN DO
+    SAY '*ERROR; AUTHORIZATION FAILURE; RC='rc
+  END
+  WHEN rc=1747 THEN DO
+    SAY '*ERROR; CICSECX1 RETURN CODE IS INVALID; RC='rc
+  END
+  OTHERWISE
+    SAY '*ERROR; UNKNOWN RETURN CODE FROM OPERATION; RC='rc
+END
+PARSE EXTERNAL dummy
+EXIT 8

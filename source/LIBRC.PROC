@@ -1,0 +1,78 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: LIBRC.PROC                                                */
+/*********************************************************************/
+/* Exec to EXPORT an RFS file to a VSE sublibrary.                   */
+/* It is modelled after the ICCF LIBRC procedure.                    */
+CALL AUTHFUNC LIBRC
+IF RESULT <> 0 THEN DO
+  SAY '*NOT AUTHORIZED TO USE THE LIBRC FUNCTION'
+  EXIT 8
+END
+ARG library_sublib member_type rfsfileid
+rfsfileid = STRIP(rfsfileid,'B')
+IF LENGTH(library_sublib) = 0 THEN DO
+  SAY '*MANDATORY OPERAND MISSING; CORRECT SYNTAX IS:'
+  SAY ' '
+  SAY 'LIBRC l.s m.t rfsfileid'
+  SAY '      ---'
+  EXIT 8
+END
+IF LENGTH(member_type) = 0 THEN DO
+  SAY '*MANDATORY OPERAND MISSING; CORRECT SYNTAX IS:'
+  SAY ' '
+  SAY 'LIBRC l.s m.t rfsfileid'
+  SAY '          ---'
+  EXIT 8
+END
+IF LENGTH(rfsfileid) = 0 THEN DO
+  SAY '*OPTIONAL OPERAND MISSING:'
+  SAY ' '
+  SAY 'LIBRP l.s m.t <rfsfileid>'
+  SAY '               ---------'
+  SAY 'RFSFILEID ASSUMED TO BE - ' || member_type
+  rfsfileid = member_type
+END
+/* Now get current RFS path to use in RFS EXPORT command */
+ADDRESS REXXCICS 'CD'
+filepath = RESULT
+fullpath = filepath || rfsfileid
+'EXPORT 'fullpath' 'library_sublib'('member_type')'
+SELECT
+  WHEN rc=0 THEN DO
+    EXIT 0
+  END
+  WHEN rc=1723 THEN DO
+    SAY '*ERROR; INVALID RFSFILEID; RC='rc
+    EXIT 8
+  END
+  WHEN rc=1724 THEN DO
+    SAY '*ERROR; INVALID RFSFILEID; RC='rc
+    EXIT 8
+  END
+  WHEN rc=1733 THEN DO
+    SAY '*ERROR; INVALID VSE LIBRARY OR MEMBERNAME; RC='rc
+    EXIT 8
+  END
+  WHEN rc=1736 THEN DO
+    SAY '*ERROR; CICSECX1 LINK FAILED; RC='rc
+    EXIT 8
+  END
+  WHEN rc=1738 THEN DO
+    SAY '*ERROR; INVALID VSE LIBRARY OR MEMBERNAME; RC='rc
+    EXIT 8
+  END
+  WHEN rc=1744 THEN DO
+    SAY '*ERROR; AUTHORIZATION FAILURE; RC='rc
+    EXIT 8
+  END
+  WHEN rc=1747 THEN DO
+    SAY '*ERROR; CICSECX1 RETURN CODE IS INVALID; RC='rc
+    EXIT 8
+  END
+  OTHERWISE DO
+    SAY '*ERROR; UNKNOWN RETURN CODE FROM OPERATION; RC='rc
+    EXIT 8
+END

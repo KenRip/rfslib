@@ -1,0 +1,57 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: RFSCOMP.PROC                                              */
+/*********************************************************************/
+/* Perform RFSLIB COMPILE process.                                   */
+/*                                                                   */
+/*********************************************************************/
+ARG compskel in opt
+PARSE UPPER VAR opt opt
+IF opt = 'TRACE' THEN DO
+  TRACE ALL
+  opt = 'DEBUG'
+END
+IF opt = 'DEBUG' THEN SAY 'Executing RFSCOMP Procedure V1.0.0'
+IF LENGTH(in) <> 0 THEN DO
+  PARSE VAR in filename '.' filetype
+  IF opt = 'DEBUG' THEN SAY 'Processing 'compskel' Skeleton.'
+  CALL RFSSKEL compskel filename in
+  IF RESULT <> 0 THEN DO
+    IF opt <> 'SILENT' THEN DO
+      SAY 'Error occurred processing 'compskel' Skeleton. RC='RESULT
+    END
+    RETURN RESULT
+  END
+  ELSE DO
+     IF opt = 'DEBUG' THEN SAY 'Submitting generated JCL.'
+     temp_member = 'SK$TEMP$.'USERID()
+     IF opt = 'DEBUG' THEN DO
+       CALL RFSSUBMT temp_member DEBUG
+     END
+     ELSE DO
+       IF opt <> 'SILENT' THEN DO
+         CALL RFSSUBMT temp_member
+         IF RESULT <> 0 THEN DO
+           SAY 'Error during SUBMIT processing. RC='RESULT
+           RETURN RESULT
+         END
+         ELSE DO
+           IF opt = 'DEBUG' THEN SAY 'Deleting temporary RFS File.'
+           'RFS DELETE SK$TEMP$.'USERID()
+         END
+       END
+       ELSE DO
+         CALL RFSSUBMT temp_member SILENT
+         IF RESULT <> 0 THEN DO
+           RETURN RESULT
+         END
+         ELSE DO
+           'RFS DELETE SK$TEMP$.'USERID()
+         END
+       END
+     END
+  END
+END
+RETURN 0

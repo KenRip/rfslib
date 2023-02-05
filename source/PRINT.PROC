@@ -1,0 +1,172 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: PRINT.PROC                                                */
+/*********************************************************************/
+/* This program is used to spool an RFS File to the POWER List       */
+/* Queue for printing, etc.                                          */
+/*                                                                   */
+/* The program loads the contents of the RFSfile into a STEM and     */
+/* uses the CICS SPOOLOPEN/SPOOLWRITE/SPOOLCLOSE Command Level API   */
+/* to load the RFS File into the POWER List Queue.                   */
+/*                                                                   */
+/*********************************************************************/
+ARG in opt
+PARSE UPPER VAR opt opt
+IF opt = 'TRACE' THEN DO
+  TRACE ?ALL
+  opt = 'DEBUG'
+END
+IF opt = 'DEBUG' THEN SAY 'Executing PRINT Procedure V1.0.1'
+IF LENGTH(in) <> 0 THEN DO
+  /* Validate USER is permitted to PRINT */
+  CALL AUTHFUNC PRINT
+  IF RESULT <> 0 THEN DO
+    IF opt <> 'SILENT' THEN DO
+      SAY 'You are not authorized to use the PRINT procedure'
+    END
+    RETURN 99
+  END
+  IF opt = 'DEBUG' THEN SAY 'Reading RFS member into DATA. stem'
+  IF POS(':',in) = 0 THEN DO
+    'RFS DISKR 'in
+    DO x = 1 to DATA.0
+      PRINTDATA.x = DATA.x
+    END
+    PRINTDATA.0 = DATA.0
+    CALL spool_print in
+    IF RESULT <> 0 THEN DO
+      IF opt <> 'SILENT' THEN DO
+        SAY 'PRINT failed. rc='RESULT
+      END
+    END
+  END
+  ELSE DO
+    IF opt <> 'SILENT' THEN DO
+      SAY 'Input Paramter should only contain ''member.type'''
+    END
+  END
+END
+ELSE DO
+  IF opt <> 'SILENT' THEN DO
+    SAY 'Input Paramter Required.  Please specify ''member.type'''
+  END
+END
+IF RESULT <> 0 THEN DO
+  EXIT RESULT
+END
+IF opt = 'DEBUG' THEN SAY 'Exiting from PRINT.PROC'
+RETURN 0
+/* END Mainline Code */
+/*********************************************************************/
+/* Internal Subroutines:                                             */
+/*********************************************************************/
+spool_print:
+/* Procedure to spool RFS file to POWER List Queue.            */
+ARG jname
+rpt_name = USERID()
+rpt_form = 'LZL1'
+rpt_title = 'User:'USERID()' RFS File:'in
+rpt_class = 'A'
+rpt_disp = 'H'
+rpt_priority = '3'
+rpt_dest = USERID()
+rpt_linelength = 132
+rpt_lines = 59
+rpt_head = '====== RFS Fileid: 'in' === User: 'USERID()' ='
+rpt_head = LEFT(rpt_head,rpt_linelength,'=')
+rpt_token = ''
+print_profile = 'POOL1:\USERS\'USERID()'\PRINT.PROFILE'
+'RFS CKFILE 'print_profile
+IF rc = 0 THEN DO
+  IF opt = 'DEBUG' THEN SAY 'Processing PRINT.PROFILE.'
+  'RFS DISKR 'print_profile
+  DO p = 1 TO DATA.0
+    PARSE VAR DATA.p print_parm '=' value .
+    SELECT
+      WHEN print_parm = 'NAME' THEN DO
+        rpt_name = value
+        IF opt = 'DEBUG' THEN SAY 'NAME='value' processed.'
+      END
+      WHEN print_parm = 'FORM' THEN DO
+        rpt_form = value
+        IF opt = 'DEBUG' THEN SAY 'FORM='value' processed.'
+      END
+      WHEN print_parm = 'CLASS' THEN DO
+        rpt_class = value
+        IF opt = 'DEBUG' THEN SAY 'CLASS='value' processed.'
+      END
+      WHEN print_parm = 'DISP' THEN DO
+        rpt_disp = value
+        IF opt = 'DEBUG' THEN SAY 'DISP='value' processed.'
+      END
+      WHEN print_parm = 'PRI' THEN DO
+        rpt_priority = value
+        IF opt = 'DEBUG' THEN SAY 'PRI='value' processed.'
+      END
+      WHEN print_parm = 'DEST' THEN DO
+        rpt_dest = value
+        IF opt = 'DEBUG' THEN SAY 'DEST='value' processed.'
+      END
+      OTHERWISE
+    END
+  END
+END
+'CICS SPOOLOPEN REPORT(rpt_name)'  ,
+                'TOKEN(rpt_token)'  ,
+                'FORMS(rpt_form)'  ,
+                'HEAD(rpt_head)'  ,
+                'CLASS(rpt_class)'  ,
+                'PRIORITY(rpt_priority)'  ,
+                'DESTINATION(rpt_dest)'  ,
+                'LINELENGTH(rpt_linelength)'  ,
+                'LINES(rpt_lines)'  ,
+                'HEADNUM'  ,
+                'NOSEP'  ,
+                'LOGICAL'
+IF rc = 0 THEN DO
+  DO i = 1 TO PRINTDATA.0
+    PRINTDATA.i = LEFT(PRINTDATA.i,rpt_linelength,' ')
+    'CICS SPOOLWRITE FROM(PRINTDATA.i) TOKEN(rpt_token)'
+    IF rc <> 0 THEN DO
+      IF opt <> 'SILENT' THEN DO
+        SAY 'Error occurred during SPOOLWRITE. rc='rc
+      END
+      RETURN 12
+    END
+  END
+  'CICS SPOOLCLOSE REPORT(rpt_name) TOKEN(rpt_token) DISP(rpt_disp)'
+  IF rc <> 0 THEN DO
+    IF opt <> 'SILENT' THEN DO
+      SAY 'Error occurred during SPOOLCLOSE. rc='rc
+    END
+    RETURN 13
+  END
+  ELSE DO
+    IF opt <> 'SILENT' THEN DO
+      SAY 'File 'in' printed.'
+    END
+  END
+END
+ELSE DO
+  IF opt <> 'SILENT' THEN DO
+    SAY 'Error occurred during SPOOLOPEN. rc='rc
+  END
+  RETURN 14
+END
+RETURN 0
+/* */
+insert_data_line:
+/* Procedure to insert stem element in PRINTDATA. stem */
+ARG afterline newdata
+startline = PRINTDATA.0 + 1
+lastline = afterline + 1
+DO ln = startline TO lastline BY -1
+  prev_ln = ln - 1
+  PRINTDATA.ln = PRINTDATA.prev_ln
+END
+PRINTDATA.lastline = newdata
+PRINTDATA.0 = startline
+IF opt = 'DEBUG' THEN SAY 'Inserting PRINTDATA. line'
+RETURN 0

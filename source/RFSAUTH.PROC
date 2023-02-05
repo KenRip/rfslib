@@ -1,0 +1,338 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: RFSAUTH.PROC                                              */
+/*********************************************************************/
+/* This program is used to check if the user is allowed to invoke    */
+/* the passed in function.                                           */
+/*                                                                   */
+/* Current FUNCTIONS supported are...                                */
+/*   COMPILE   :Queries ESM for RFSLIB.COMPILE                       */
+/*   CONFIG    :Queries ESM for RFSLIB.CONFIG                        */
+/*   EXEC      :Queries ESM for RFSLIB.EXEC                          */
+/*   ICCFP     :Queries ESM for RFSLIB.ICCFP                         */
+/*   IESCNTL   :Returns information from z/VSE IESCNTL File.         */
+/*   LIBRC     :Queries ESM for RFSLIB.LIBRC                         */
+/*   LIBRP     :Queries ESM for RFSLIB.LIBRP                         */
+/*   PRINT     :Queries ESM for RFSLIB.PRINT                         */
+/*   RESET     :Queries ESM for RFSLIB.RESET                         */
+/*   RFSCD     :Queries ESM for RFSLIB.CD                            */
+/*   SUBMIT    :Queries ESM for RFSLIB.SUBMIT                        */
+/*     JCLID   :Queries ESM for RFSLIB.SUBMIT.JCLID                  */
+/*     JOBCARD :Queries ESM for RFSLIB.SUBMIT.JOBCARD                */
+/*                                                                   */
+/*********************************************************************/
+/* TRACE ALL */
+/* Now IMPORT RFSLIB.CONFIG from PRD2.CONFIG to     */
+/* obtain default settings for RFSLIB environment.  */
+configlib = 'PRD2.CONFIG'
+ADDRESS REXXCICS 'CD'
+filepath = RESULT
+fullpath = filepath || 'CF$RFS$.'USERID()
+'IMPORT 'configlib'(RFSLIB.CONFIG) 'fullpath
+IF rc <> 0 THEN DO
+/* SAY 'Error importing RFSLIB.CONFIG from VSE library. RC='rc */
+  EXIT rc
+END
+/* Now read temporary RFS File into STEM for processing */
+'RFS DISKR CF$RFS$.'USERID()
+IF rc <> 0 THEN DO
+/* SAY 'Error reading CF$RFS$ RFS File. RC='rc */
+  EXIT rc
+END
+/* Temporary RFS file now longer needed, delete it.     */
+'RFS DELETE CF$RFS$.'USERID()
+/* Now process parameters from RFSLIB.CONFIG member.    */
+DO i = 1 TO DATA.0
+  INTERPRET STRIP(DATA.i)
+END
+/* Now enter main RFSAUTH Logic */
+ARG in
+tuser = USERID()
+log = '+0000000054'
+nolog = '+0000000055'
+readable = '+0000000035'
+SELECT
+  WHEN in = 'COMPILE' THEN DO
+    IF USEESM = 'YES' THEN DO
+      res = 'FACILITY'
+      resid = LEFT('RFSLIB.COMPILE',246,' ')
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(nolog)'
+      IF cvda = readable THEN DO
+        /* User allowed */
+        RETURN 0
+      END
+      ELSE DO
+        /* User not allowed, generate violation with ESM */
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(log)'
+        RETURN 8
+      END
+    END
+    ELSE DO
+      RETURN 0
+    END
+  END
+  WHEN in = 'CONFIG' THEN DO
+    IF USEESM = 'YES' THEN DO
+      res = 'FACILITY'
+      resid = LEFT('RFSLIB.CONFIG',246,' ')
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(nolog)'
+      IF cvda = readable THEN DO
+        /* User allowed */
+        RETURN 0
+      END
+      ELSE DO
+        /* User not allowed, generate violation with ESM */
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(log)'
+        RETURN 8
+      END
+    END
+    ELSE DO
+      RETURN 0
+    END
+  END
+  WHEN in = 'EXEC' THEN DO
+    IF USEESM = 'YES' THEN DO
+      res = 'FACILITY'
+      resid = LEFT('RFSLIB.EXEC',246,' ')
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(nolog)'
+      IF cvda = readable THEN DO
+        /* User allowed */
+        RETURN 0
+      END
+      ELSE DO
+        /* User not allowed, generate violation with ESM */
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(log)'
+        RETURN 8
+      END
+    END
+    ELSE DO
+      RETURN 0
+    END
+  END
+  WHEN in = 'ICCFP' THEN DO
+    IF USEESM = 'YES' THEN DO
+     res = 'FACILITY'
+     resid = LEFT('RFSLIB.ICCFP',246,' ')
+     'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+      READ(cvda) LOGMESSAGE(nolog)'
+     IF cvda = readable THEN DO
+       /* User allowed */
+       RETURN 0
+     END
+     ELSE DO
+       /* User not allowed, generate violation with ESM */
+     'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+      READ(cvda) LOGMESSAGE(log)'
+       RETURN 8
+     END
+    END
+    ELSE DO
+      RETURN 0
+    END
+  END
+  WHEN in = 'IESCNTL' THEN DO
+    CALL get_iescntl
+    IF RESULT <> 0 THEN DO
+      RETURN 99  /* IESCNTL error    */
+    END
+    RETURN iescntld
+  END
+  WHEN in = 'LIBRC' THEN DO
+    IF USEESM = 'YES' THEN DO
+      res = 'FACILITY'
+      resid = LEFT('RFSLIB.LIBRC',246,' ')
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(nolog)'
+      IF cvda = readable THEN DO
+        /* User allowed */
+        RETURN 0
+      END
+      ELSE DO
+        /* User not allowed, generate violation with ESM */
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(log)'
+        RETURN 8
+      END
+    END
+    ELSE DO
+      RETURN 0
+    END
+  END
+  WHEN in = 'LIBRP' THEN DO
+    IF USEESM = 'YES' THEN DO
+      res = 'FACILITY'
+      resid = LEFT('RFSLIB.LIBRP',246,' ')
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(nolog)'
+      IF cvda = readable THEN DO
+        /* User allowed */
+        RETURN 0
+      END
+      ELSE DO
+        /* User not allowed, generate violation with ESM */
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(log)'
+        RETURN 8
+      END
+    END
+    ELSE DO
+      RETURN 0
+    END
+  END
+  WHEN in = 'PRINT' THEN DO
+    IF USEESM = 'YES' THEN DO
+      res = 'FACILITY'
+      resid = LEFT('RFSLIB.PRINT',246,' ')
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(nolog)'
+      IF cvda = readable THEN DO
+        /* User allowed */
+        RETURN 0
+      END
+      ELSE DO
+        /* User not allowed, generate violation with ESM */
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(log)'
+        RETURN 8
+      END
+    END
+    ELSE DO
+      RETURN 0
+    END
+  END
+  WHEN in = 'RESET' THEN DO
+    IF USEESM = 'YES' THEN DO
+      res = 'FACILITY'
+      resid = LEFT('RFSLIB.RESET',246,' ')
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(nolog)'
+      IF cvda = readable THEN DO
+        /* User allowed */
+        RETURN 0
+      END
+      ELSE DO
+        /* User not allowed, generate violation with ESM */
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(log)'
+        RETURN 8
+      END
+    END
+    ELSE DO
+      RETURN 0
+    END
+  END
+  WHEN in = 'RFSCD' THEN DO
+    IF USEESM = 'YES' THEN DO
+      res = 'FACILITY'
+      resid = LEFT('RFSLIB.CD',246,' ')
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(nolog)'
+      IF cvda = readable THEN DO
+        /* User allowed */
+        RETURN 0
+      END
+      ELSE DO
+        /* User not allowed, generate violation with ESM */
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(log)'
+        RETURN 8
+      END
+    END
+    ELSE DO
+      RETURN 0
+    END
+  END
+  WHEN in = 'SUBMIT' THEN DO
+    IF USEESM = 'YES' THEN DO
+      res = 'FACILITY'
+      resid = LEFT('RFSLIB.SUBMIT',246,' ')
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(nolog)'
+      IF cvda = readable THEN DO
+        /* User allowed */
+        RETURN 0
+      END
+      ELSE DO
+        /* User not allowed, generate violation with ESM */
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(log)'
+        RETURN 8
+      END
+    END
+    ELSE DO
+      RETURN 0
+    END
+  END
+  WHEN in = 'JOBCARD' THEN DO
+    IF USEESM = 'YES' THEN DO
+      res = 'FACILITY'
+      resid = LEFT('RFSLIB.SUBMIT.JOBCARD',246,' ')
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(nolog)'
+      IF cvda = readable THEN DO
+        /* User allowed */
+        RETURN 0
+      END
+      ELSE DO
+        /* User not allowed */
+        RETURN 8
+      END
+    END
+    ELSE DO
+      RETURN 0
+    END
+  END
+  WHEN in = 'JCLID' THEN DO
+    IF USEESM = 'YES' THEN DO
+      res = 'FACILITY'
+      resid = LEFT('RFSLIB.SUBMIT.JCLID',246,' ')
+      'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+       READ(cvda) LOGMESSAGE(nolog)'
+      IF cvda = readable THEN DO
+        /* User allowed */
+        RETURN 0
+      END
+      ELSE DO
+        /* User not allowed */
+        RETURN 8
+      END
+    END
+    ELSE DO
+      RETURN 0
+    END
+  END
+  OTHERWISE
+    RETURN 12
+END
+RETURN 0
+/* END Mainline Code */
+get_iescntl:
+/* Procedure to retrieve User info from the IESCNTL file */
+tablei = '001020304050607080902131415161718191'X
+tablei = tablei || '122232425262728292132333435363738393'X
+tablei = tablei || '0B3FB8C8BA'X
+tableo = '0123456789STUVWXYZJKLMNOPQRABCDEFGHI  #@$'
+/* Set up key to IESCNTL file record */
+iescntl_type = 'US'
+iescntl_user = LEFT(USERID(),8,'00'X)
+iescntl_pad = '0000'X
+key = iescntl_type || iescntl_user || iescntl_pad
+IESCNTL = 'IESCNTL'
+record = ''
+'CICS READ FILE(IESCNTL) INTO(record) RIDFLD(key)'
+IF rc <> 0 THEN DO
+  SAY 'Error reading IESCNTL file. rc='rc
+  RETURN 14
+END
+/* Retreive data at offset 43 in IESCNTL file US* record */
+coded_data = SUBSTR(record,43,8)
+iescntld = TRANSLATE(coded_data,tableo,tablei)
+RETURN 0

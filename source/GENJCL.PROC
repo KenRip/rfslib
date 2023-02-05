@@ -1,0 +1,33 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: GENJCL.PROC                                               */
+/*********************************************************************/
+/* Exec to test a skeleton and generate jcl using it.                */
+/*                                                                   */
+/* This procedure utilizes the SKELETON.PROC external REXX           */
+/* procedure.                                                        */
+/*                                                                   */
+/*********************************************************************/
+ARG skel p1 p2 p3 p4 p5 p6 p7 p8 p9
+PARSE UPPER VAR skel skel
+PARSE UPPER VAR p1 p1
+PARSE UPPER VAR p2 p2
+PARSE UPPER VAR p3 p3
+PARSE UPPER VAR p4 p4
+PARSE UPPER VAR p5 p5
+PARSE UPPER VAR p6 p6
+PARSE UPPER VAR p7 p7
+PARSE UPPER VAR p8 p8
+PARSE UPPER VAR p9 p9
+CALL SKELETON skel p1 p2 p3 p4 p5 p6 p7 p8 p9
+IF RESULT <> 0 THEN DO
+  SAY 'Error occurred processing Skeleton. RC='RESULT
+END
+ELSE DO
+  temp_member = 'SK$TEMP$.'USERID()
+  'EDIT 'temp_member
+  'RFS DELETE SK$TEMP$.'USERID()
+END
+RETURN 0

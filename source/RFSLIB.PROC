@@ -1,0 +1,1632 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: RFSLIB.PROC                                               */
+/*********************************************************************/
+/* Main RFSLIB Application Module                                    */
+/*********************************************************************/
+'PSEUDO ON'
+/* Create RLS Directory for RFS Enqueue processing. */
+/* This will only be successful for the first user  */
+/* that invokes the RFSLIB procedure.               */
+/* Error is ingored for all other executions.       */
+'RLS MKDIR \ENQUEUES'
+/* Now IMPORT RFSLIB.CONFIG from PRD2.CONFIG to     */
+/* obtain default settings for RFSLIB environment.  */
+configlib = 'PRD2.CONFIG'
+ADDRESS REXXCICS 'CD'
+filepath = RESULT
+fullpath = filepath || 'CF$RFS$.'USERID()
+'IMPORT 'configlib'(RFSLIB.CONFIG) 'fullpath
+IF rc <> 0 THEN DO
+/* SAY 'Error importing RFSLIB.CONFIG from VSE library. RC='rc */
+  EXIT rc
+END
+/* Now read temporary RFS File into STEM for processing */
+'RFS DISKR CF$RFS$.'USERID()
+IF rc <> 0 THEN DO
+/* SAY 'Error reading CF$RFS$ RFS File. RC='rc */
+  EXIT rc
+END
+/* Temporary RFS file now longer needed, delete it.     */
+'RFS DELETE CF$RFS$.'USERID()
+/* Now process parameters from RFSLIB.CONFIG member.    */
+DO i = 1 TO DATA.0
+  INTERPRET STRIP(DATA.i)
+END
+ppath = 'FILE('RFSPANELPATH')'
+tuser = USERID()
+basedir = RFSUSERDIR
+IF DEFAULTTOUSERDIR = 'YES' THEN DO
+  rfsdir = basedir || '\' || tuser
+END
+ELSE DO
+  rfsdir = RFSTOPDIR
+END
+'TERMID'
+term = TERMID
+rfslib_msgline = ''
+'SCRNINFO'
+tscrnht = SCRNHT
+SELECT
+  WHEN tscrnht = 24 THEN DO
+    /* MODEL 2 TERMINAL */
+    rfspan = 'rfslib'
+    rfslin = 12
+  END
+  WHEN tscrnht = 27 THEN DO
+    /* MODEL 5 TERMINAL - TREAT LIKE MODEL 2 */
+    rfspan = 'rfslib'
+    rfslin = 12
+  END
+  WHEN tscrnht = 32 THEN DO
+    /* MODEL 3 TERMINAL - 8 MORE LINES THAN MODEL 2 */
+    rfspan = 'rfslib3'
+    rfslin = 20
+  END
+  WHEN tscrnht = 43 THEN DO
+    /* MODEL 4 TERMINAL - 19 MORE LINES THAN MODEL 2 */
+    rfspan = 'rfslib4'
+    rfslin = 31
+  END
+  OTHERWISE
+    rfspan = 'rfslib'
+    rfslin = 12
+END
+/* sortfield = 'DATE' */
+/* sortorder = 'D' */
+sortfield = DEFAULTSORT
+sortorder = DEFAULTSORTORDER
+IF sortfield = 'NAME' THEN DO
+  byname = '=====SORT('sortorder')====='
+  bydate = ''
+  bysize = ''
+END
+IF sortfield = 'DATE' THEN DO
+  byname = ''
+  bydate = '======SORT('sortorder')======'
+  bysize = ''
+END
+IF sortfield = 'RECORDS' THEN DO
+  byname = ''
+  bydate = ''
+  bysize = '=SORT('sortorder')='
+END
+rfspre = ''
+rhistcnt = 0
+cmdptr = 0
+start_over:
+IF cmdptr = 0 THEN rexxcmd = ''
+DO i = 1 TO rfslin
+  input_stem.i = ''
+  disp_stem1.i = ''
+  disp_stem2.i = ''
+  newfnam_stem.i = ''
+  newftyp_stem.i = ''
+END
+/*******************************/
+/* Now read the RFS directory. */
+/*******************************/
+attrib = ''
+cursloc = ''
+pf7 = 'PF7=BACKWARD'
+pf8 = 'PF8=FORWARD'
+forward = 'N'
+backward = 'N'
+ADDRESS REXXCICS 'CD 'rfsdir
+ADDRESS REXXCICS 'CD'
+rfsdir = RESULT
+userdir = basedir || '\' || tuser
+ADDRESS REXXCICS 'PATH 'userdir' 'rfsdir
+'RFS GETDIR DATA. 'rfsdir
+/************************************/
+/* Apply filename prefix if needed. */
+/************************************/
+rfspre = STRIP(rfspre)
+PARSE UPPER VAR rfspre rfspre
+IF rfspre <> '' THEN DO
+  p = 0
+  DO r = 1 TO DATA.0
+    IF LEFT(DATA.r,LENGTH(rfspre)) = rfspre THEN DO
+      p = p + 1
+      TEMP.p = DATA.r
+    END
+  END
+  TEMP.0 = p
+  DROP p DATA.
+  DO r = 1 TO TEMP.0
+    DATA.r = TEMP.r
+  END
+  DATA.0 = TEMP.0
+  DROP TEMP.
+END
+/***************************/
+/* Now sort directory info */
+/***************************/
+IF DATA.0 > 0 THEN DO
+  CALL sortrfsdir sortfield sortorder
+END
+ELSE DO
+  rfslib_msgline = 'NO FILES/DIR TO DISPLAY.'
+END
+DO r = 1 TO DATA.0
+  fn.r = LEFT(DATA.r,8,' ')
+  ft.r = SUBSTR(DATA.r,10,8)
+  rt.r = SUBSTR(DATA.r,19,1)
+  sr.r = STRIP(SUBSTR(DATA.r,21,7))
+  sb.r = STRIP(SUBSTR(DATA.r,29,10))
+  dt.r = SUBSTR(DATA.r,40,10)
+  tm.r = SUBSTR(DATA.r,51,8)
+  se.r = SUBSTR(DATA.r,60,1)
+END
+fn.0 = DATA.0
+ft.0 = DATA.0
+rt.0 = DATA.0
+sr.0 = DATA.0
+sb.0 = DATA.0
+dt.0 = DATA.0
+tm.0 = DATA.0
+se.0 = DATA.0
+notauth = 0
+pagenum = 1
+/**************************************************************/
+/* Now start 'FOREVER' loop to process display and user input */
+/**************************************************************/
+DO FOREVER
+  rfspre = STRIP(rfspre)
+  PARSE UPPER VAR rfspre rfspre
+  attrib = ''
+  str_idx = pagenum * rfslin - (rfslin - 1)
+  end_idx = pagenum * rfslin
+  sp = FORMAT(pagenum,3)
+  totalpages = TRUNC(fn.0 / rfslin)
+  totalpagesrnd = fn.0 // rfslin
+  IF totalpagesrnd > 0 THEN DO
+    totalpages = totalpages + 1
+  END
+  ep = FORMAT(totalpages,3)
+  DO q = str_idx TO end_idx
+    display_line = q // rfslin
+    IF display_line = 0 THEN display_line = rfslin
+    IF fn.q <> 'FN.'q THEN DO
+      IF rt.q = 'D' THEN DO
+        temp = fn.q' 'ft.q'\'
+      END
+      ELSE DO
+        temp = fn.q' 'ft.q
+      END
+      disp_stem1.display_line = temp
+      SELECT
+        WHEN dt.q = 'RENAMED' THEN DO
+          disp_stem2.display_line = '********* RENAMED *********'
+        END
+        WHEN dt.q = 'MOVED' THEN DO
+          disp_stem2.display_line = '********** MOVED **********'
+        END
+        OTHERWISE
+          temp = dt.q' 'tm.q' ' || RIGHT(sr.q,7,' ')
+          disp_stem2.display_line = temp
+      END
+      record_stem.display_line = q
+    END
+    ELSE DO
+      disp_stem1.display_line = ''
+      disp_stem2.display_line = ''
+      attrib = attrib' AT(input_stem.'display_line' PR INV)'
+      attrib = attrib' AT(newfnam_stem.'display_line' PR INV)'
+      attrib = attrib' AT(newftyp_stem.'display_line' PR INV)'
+    END
+  END
+  SELECT
+    WHEN pagenum = 1 THEN DO
+      IF fn.q = 'FN.'q THEN DO
+        attrib = attrib'AT(pf7 INV) AT(pf8 INV)'
+        IF notauth = 1 THEN DO
+          attrib = attrib' AT(rfslib_msgline PR RED) ALARM'
+        END
+        cursloc = 'CU(input_stem.1)'
+        'PANEL SEND 'rfspan ppath attrib cursloc
+        forward = 'N'
+        backward = 'N'
+        notauth = 0
+      END
+      ELSE DO
+        attrib = attrib'AT(pf7 INV)'
+        IF notauth = 1 THEN DO
+          attrib = attrib' AT(rfslib_msgline PR RED) ALARM'
+        END
+        cursloc = 'CU(input_stem.1)'
+        'PANEL SEND 'rfspan ppath attrib cursloc
+        forward = 'Y'
+        backward = 'N'
+        notauth = 0
+      END
+    END
+    WHEN pagenum > 1 THEN DO
+      IF fn.q = 'FN.'q THEN DO
+        attrib = attrib'AT(pf8 INV)'
+        IF notauth = 1 THEN DO
+          attrib = attrib' AT(rfslib_msgline PR RED) ALARM'
+        END
+        cursloc = 'CU(input_stem.1)'
+        'PANEL SEND 'rfspan ppath attrib cursloc
+        forward = 'N'
+        backward = 'Y'
+        notauth = 0
+      END
+      ELSE DO
+        IF notauth = 1 THEN DO
+          attrib = attrib'AT(rfslib_msgline PR RED) ALARM'
+        END
+        cursloc = 'CU(input_stem.1)'
+        'PANEL SEND 'rfspan ppath attrib cursloc
+        forward = 'Y'
+        backward = 'Y'
+        notauth = 0
+      END
+    END
+    OTHERWISE
+  END
+  IF rc > 4 THEN SIGNAL error
+  'PANEL RECEIVE 'rfspan
+  IF rc > 4 THEN SIGNAL error
+  rfslib_msgline = ''
+  /**********************************/
+  /* Process PF Keys and user input */
+  /**********************************/
+  SELECT
+    /* PF3 to exit */
+    WHEN pan.aid = 'PF3' THEN DO
+      rfsdir = basedir || '\' || tuser
+      ADDRESS REXXCICS 'CD 'rfsdir
+      'PANEL END'
+      'SENDE'
+      IF VSEIUISTARTED = 'YES' THEN DO
+        "CICS XCTL PROGRAM('IESFPEP')"
+      END
+      EXIT 0
+    END
+    /* PF1 for Help (When available) */
+    WHEN pan.aid = 'PF1' THEN DO
+      CALL RFSHELP RFSLIB
+    END
+    /* PF2 to refresh the display and also process file prefix */
+    WHEN pan.aid = 'PF2' THEN DO
+      DROP fn. ft. rt. sr. sb. dt. tm. se.
+      SIGNAL start_over
+    END
+    /* PF4 to move up one dir level */
+    WHEN pan.aid = 'PF4' THEN DO
+      rfsdirup = TRANSLATE(rfsdir,' ','\')
+      lastwordpos = WORDINDEX(rfsdirup,WORDS(rfsdirup))
+      rfsdirup = LEFT(rfsdirup,lastwordpos - 1)
+      rfsdir = TRANSLATE(STRIP(rfsdirup),'\',' ')
+      IF LENGTH(rfsdir) < LENGTH(RFSTOPDIR) THEN DO
+        rfsdir = RFSTOPDIR
+      END
+      DROP fn. ft. rt. sr. sb. dt. tm. se.
+      SIGNAL start_over
+    END
+    /* PF5 Command retrieve function */
+    WHEN pan.aid = 'PF5' THEN DO
+      IF rhistcnt <> 0 THEN DO
+        IF cmdptr <> 0 THEN DO
+          cmdptr = cmdptr - 1
+          IF cmdptr <> 0 THEN DO
+            rexxcmd = rexxcmdhist.cmdptr
+            DROP fn. ft. rt. sr. sb. dt. tm. se.
+            SIGNAL start_over
+          END
+          ELSE DO
+            DROP fn. ft. rt. sr. sb. dt. tm. se.
+            SIGNAL start_over
+          END
+        END
+        ELSE DO
+          cmdptr = rexxcmdhist.0
+          rexxcmd = rexxcmdhist.cmdptr
+          DROP fn. ft. rt. sr. sb. dt. tm. se.
+          SIGNAL start_over
+        END
+      END
+    END
+    /* PF6 to create a new file or directory */
+    WHEN pan.aid = 'PF6' THEN DO
+      CALL rfsliba
+      SIGNAL start_over
+    END
+    /* PF7 to page backward */
+    WHEN pan.aid = 'PF7' THEN DO
+      IF backward = 'Y' THEN DO
+        pagenum = pagenum - 1
+        IF pagenum < 1 THEN pagenum = 1
+      END
+      DO x = 1 TO rfslin
+        IF input_stem.x = '*' THEN input_stem.x = ''
+        IF input_stem.x = '?' THEN input_stem.x = ''
+      END
+      DROP x
+    END
+    /* PF8 to page forward */
+    WHEN pan.aid = 'PF8' THEN DO
+      IF forward = 'Y' THEN DO
+        pagenum = pagenum + 1
+      END
+      DO x = 1 TO rfslin
+        IF input_stem.x = '*' THEN input_stem.x = ''
+        IF input_stem.x = '?' THEN input_stem.x = ''
+      END
+      DROP x
+    END
+    /* PF9 to sort filelist by date */
+    WHEN pan.aid = 'PF9' THEN DO
+      IF sortfield <> 'DATE' THEN DO
+        sortorder = ''
+      END
+      sortfield = 'DATE'
+      SELECT
+        WHEN sortorder = 'A' THEN DO
+          sortorder = 'D'
+        END
+        WHEN sortorder = 'D' THEN DO
+          sortorder = 'A'
+        END
+        OTHERWISE
+        sortorder = 'D'
+      END
+      byname = ''
+      bydate = '======SORT('sortorder')======'
+      bysize = ''
+      DROP fn. ft. rt. sr. sb. dt. tm. se.
+      SIGNAL start_over
+    END
+    /* PF10 to sort filelist by name */
+    WHEN pan.aid = 'PF10' THEN DO
+      IF sortfield <> 'NAME' THEN DO
+        sortorder = ''
+      END
+      sortfield = 'NAME'
+      SELECT
+        WHEN sortorder = 'A' THEN DO
+          sortorder = 'D'
+        END
+        WHEN sortorder = 'D' THEN DO
+          sortorder = 'A'
+        END
+        OTHERWISE
+        sortorder = 'A'
+      END
+      byname = '=====SORT('sortorder')====='
+      bydate = ''
+      bysize = ''
+      DROP fn. ft. rt. sr. sb. dt. tm. se.
+      SIGNAL start_over
+    END
+    /* PF11 to sort filelist by size in records */
+    WHEN pan.aid = 'PF11' THEN DO
+      IF sortfield <> 'RECORDS' THEN DO
+        sortorder = ''
+      END
+      sortfield = 'RECORDS'
+      SELECT
+        WHEN sortorder = 'A' THEN DO
+          sortorder = 'D'
+        END
+        WHEN sortorder = 'D' THEN DO
+          sortorder = 'A'
+        END
+        OTHERWISE
+        sortorder = 'A'
+      END
+      byname = ''
+      bydate = ''
+      bysize = '=SORT('sortorder')='
+      DROP fn. ft. rt. sr. sb. dt. tm. se.
+      SIGNAL start_over
+    END
+    /* ENTER to process user input on commandline or opt input area */
+    WHEN pan.aid = 'ENTER' THEN DO
+      /* **** Process the CMDLINE First ************* */
+      IF rexxcmd <> '' THEN DO
+        PARSE VAR rexxcmd rexxcmd cmdopts
+        rexxcmd = STRIP(rexxcmd)
+        rhistcnt = rhistcnt + 1
+        rexxcmdhist.rhistcnt = rexxcmd' 'cmdopts
+        rexxcmdhist.0 = rhistcnt
+        cmdptr = 0
+        /* Only keep last 25 commands for retrieve function */
+        IF rhistcnt > 25 THEN DO
+          DO cc = 2 TO rexxcmdhist.0
+            ccminus = cc - 1
+            rexxcmdhist.ccminus = rexxcmdhist.cc
+          END
+          rhistcnt = 25
+          rexxcmdhist.0 = rhistcnt
+        END
+        PARSE UPPER VAR rexxcmd rexxcmd
+        cmdopts = STRIP(cmdopts)
+        SELECT
+          WHEN rexxcmd = 'CD' THEN DO
+            CALL RFSAUTH RFSCD
+            IF RESULT <> 0 THEN DO
+              rfslib_msgline = 'NOT AUTHORIZED FOR THIS COMMAND.'
+            END
+            ELSE DO
+              PARSE UPPER VAR cmdopts cmdopts
+              'RFS CKDIR 'cmdopts
+              IF rc <> 0 THEN DO
+                IF rc = 113 THEN DO
+                  rfslib_msgline = 'DIRECTORY NOT FOUND.'
+                END
+                ELSE DO
+                  rfslib_msgline = 'CD COMMAND FAILED. RC='rc
+                END
+              END
+              ELSE DO
+                rfsdir = cmdopts
+                rfslib_msgline = 'CD COMPLETE.'
+                DROP fn. ft. rt. sr. sb. dt. tm. se.
+                SIGNAL start_over
+              END
+            END
+          END
+          WHEN rexxcmd = 'ICCFP' THEN DO
+            CALL RFSICCFP cmdopts
+            rfslib_msgline = 'ICCFP COMPLETE. RC='RESULT'.'
+          END
+          WHEN rexxcmd = 'LIBRP' THEN DO
+            CALL RFSLIBRP cmdopts
+            rfslib_msgline = 'LIBRP COMPLETE. RC='RESULT'.'
+          END
+          WHEN rexxcmd = 'LIBRC' THEN DO
+            CALL RFSLIBRC cmdopts
+            rfslib_msgline = 'LIBRC COMPLETE. RC='RESULT'.'
+          END
+          WHEN rexxcmd = 'EXEC' THEN DO
+            CALL RFSAUTH EXEC
+            IF RESULT <> 0 THEN DO
+              rfslib_msgline = 'NOT AUTHORIZED FOR THIS COMMAND.'
+            END
+            ELSE DO
+              ADDRESS REXXCICS 'EXEC 'cmdopts
+              rfslib_msgline = 'EXEC COMPLETE. RC='RESULT'.'
+              SAY ''
+              SAY 'EXEC COMPLETE. RC='RESULT'.'
+              SAY ''
+              SAY 'Press any key to return to RFSLIB...'
+              PARSE EXTERNAL inputdata
+            END
+          END
+          WHEN rexxcmd = 'HELP' THEN DO
+            UPPER cmdopts
+            IF cmdopts <> '' THEN DO
+              SELECT
+                WHEN cmdopts = 'COMMANDS' THEN DO
+                  CALL RFSHELP RFSCMDS
+                END
+                WHEN cmdopts = 'EDITOR' THEN DO
+                  CALL RFSHELP EDITOR
+                END
+                OTHERWISE
+                  rfslib_msgline = 'HELP 'cmdopts' NOT AVAILABLE.'
+              END
+            END
+            ELSE DO
+              CALL RFSHELP RFSLIB
+            END
+          END
+          WHEN rexxcmd = 'RESET' THEN DO
+            CALL RFSAUTH RESET
+            IF RESULT <> 0 THEN DO
+              rfslib_msgline = 'NOT AUTHORIZED FOR THIS COMMAND.'
+            END
+            ELSE DO
+              IF POS(':',cmdopts) = 0 THEN DO
+                fullrfsname = rfsdir || cmdopts
+              END
+              ELSE DO
+                fullrfsname = cmdopts
+              END
+              CALL rfs_dequeue fullrfsname
+              IF RESULT = 0 THEN DO
+                rfslib_msgline = 'RESET COMPLETE. RC='RESULT'.'
+              END
+              ELSE DO
+                rfslib_msgline = 'RESET ERROR. RC='RESULT'.'
+              END
+            END
+          END
+          WHEN rexxcmd = 'CONFIG' THEN DO
+            CALL RFSAUTH CONFIG
+            IF RESULT <> 0 THEN DO
+              rfslib_msgline = 'NOT AUTHORIZED FOR THIS COMMAND.'
+            END
+            ELSE DO
+              'EDIT PRD2.CONFIG(RFSLIB.CONFIG) LIB (MACRO EDITPROF'
+              IF rc <> 0 THEN DO
+                rfslib_msgline = 'CONFIG EDIT ERROR. RC='RESULT'.'
+              END
+            END
+          END
+          OTHERWISE
+            rfslib_msgline = 'COMMAND NOT SUPPORTED.'
+        END
+        SIGNAL start_over
+      END
+      DO i = 1 TO rfslin
+        IF input_stem.i = '*' THEN input_stem.i = ''
+        IF input_stem.i = '?' THEN input_stem.i = ''
+        IF input_stem.i <> '' THEN DO
+          rec = record_stem.i
+          SELECT
+            WHEN input_stem.i = '1' THEN DO
+              /* **** EDIT ********************************** */
+              IF disp_stem1.i <> '' THEN DO
+                IF rt.rec = 'F' THEN DO
+                  fnam = STRIP(fn.rec)
+                  ftyp = STRIP(ft.rec)
+                  IF ftyp = '' THEN DO
+                    fullrfsname = rfsdir || fnam
+                  END
+                  ELSE DO
+                    fullrfsname = rfsdir || fnam'.'ftyp
+                  END
+                  IF ftyp = 'PANOBJ' THEN DO
+                    rfslib_msgline = 'PANOBJ MEMBERS CANNOT BE EDITED.'
+                  END
+                  ELSE DO
+                    /* Perform rfs_enqueue of file */
+                    CALL rfs_enqueue fullrfsname
+                    IF RESULT = 0 THEN DO
+                      'EDIT 'fullrfsname' (MACRO EDITPROF'
+                      IF rc <> 0 THEN DO
+                        rfslib_msgline = 'EDIT RC='rc'.'
+                      END
+                      /* Now rfs_dequeue the file */
+                      CALL rfs_dequeue fullrfsname
+                      IF RESULT <> 0 THEN DO
+                        rfslib_msgline = 'DEQUEUE ERROR, 'RESULT
+                      END
+                    END
+                    ELSE DO
+                      PARSE VAR RESULT enqtmp .
+                      enqtmp = STRIP(enqtmp,'B')
+                      IF enqtmp <> 'RLS' THEN DO
+                        rfslib_msgline = 'FILE IN USE BY 'RESULT
+                      END
+                      ELSE DO
+                        rfslib_msgline = 'ENQUEUE ERROR, 'RESULT
+                      END
+                    END
+                  END
+                  input_stem.i = '*'
+                END
+                ELSE DO
+                  rfslib_msgline = 'INVALID SELECTION MADE.'
+                END
+              END
+              ELSE DO
+                rfslib_msgline = 'INVALID SELECTION MADE.'
+              END
+            END
+            WHEN input_stem.i = '2' THEN DO
+              /* **** CHANGE TO ***************************** */
+              IF disp_stem1.i <> '' THEN DO
+                IF rt.rec = 'D' THEN DO
+                  IF ft.rec = '' THEN DO
+                    subdir = STRIP(fn.rec)
+                    IF RIGHT(rfsdir,1) = '\' THEN DO
+                      rfsdir = rfsdir || subdir
+                    END
+                    ELSE DO
+                      rfsdir = rfsdir'\'subdir
+                    END
+                  END
+                  ELSE DO
+                    subdir = STRIP(fn.rec)
+                    subdir = subdir || '.' || STRIP(ft.rec)
+                    IF RIGHT(rfsdir,1) = '\' THEN DO
+                      rfsdir = rfsdir || subdir
+                    END
+                    ELSE DO
+                      rfsdir = rfsdir'\'subdir
+                    END
+                  END
+                  DROP fn. ft. rt. sr. sb. dt. tm. se.
+                  SIGNAL start_over
+                END
+                ELSE DO
+                  rfslib_msgline = 'INVALID SELECTION MADE.'
+                END
+              END
+              ELSE DO
+                rfslib_msgline = 'INVALID SELECTION MADE.'
+              END
+            END
+            WHEN input_stem.i = '3' THEN DO
+              /* **** PRINT ********************************* */
+              IF disp_stem1.i <> '' THEN DO
+                IF rt.rec = 'F' THEN DO
+                  fnam = STRIP(fn.rec)
+                  ftyp = STRIP(ft.rec)
+                  IF ftyp = '' THEN DO
+                    fullrfsname = fnam
+                  END
+                  ELSE DO
+                    fullrfsname = fnam'.'ftyp
+                  END
+                  IF ftyp = 'PANOBJ' THEN DO
+                    rfslib_msgline = 'PANOBJ MEMBERS CANNOT BE PRINTED.'
+                  END
+                  ELSE DO
+                    CALL RFSPRINT fullrfsname SILENT
+                  END
+                  IF RESULT <> 0 THEN DO
+                    IF RESULT = 99 THEN DO
+                      rfslib_msgline = 'NOT AUTHORIZED FOR PRINT'
+                      rfslib_msgline = rfslib_msgline' OPTION.'
+                    END
+                    ELSE DO
+                      rfslib_msgline = 'PRINT RC='RESULT'.'
+                    END
+                  END
+                  input_stem.i = '*'
+                END
+                ELSE DO
+                  rfslib_msgline = 'INVALID SELECTION MADE.'
+                END
+              END
+              ELSE DO
+                rfslib_msgline = 'INVALID SELECTION MADE.'
+              END
+            END
+            WHEN input_stem.i = '4' THEN DO
+              /* **** COPY/MOVE ***************************** */
+              IF disp_stem1.i <> '' THEN DO
+                IF rt.rec = 'F' THEN DO
+                  fnam = STRIP(fn.rec)
+                  ftyp = STRIP(ft.rec)
+                  srcfilename = fnam'.'ftyp
+                  fullrfsname = rfsdir || srcfilename
+                  tgtdir = rfsdir
+                  IF newfnam_stem.i <> '' THEN DO
+                    IF newftyp_stem.i <> '' THEN DO
+                      tgtfilename = newfnam_stem.i'.'newftyp_stem.i
+                    END
+                    ELSE DO
+                      tgtfilename = newfnam_stem.i
+                    END
+                    PARSE UPPER VAR tgtfilename tgtfilename
+                    /* Perform rfs_enqueue of file */
+                    CALL rfs_enqueue fullrfsname
+                    IF RESULT = 0 THEN DO
+                      CALL rfslibf
+                      IF RESULT <> 0 THEN DO
+                        rfslib_msgline = 'COPY/MOVE RC='RESULT'.'
+                      END
+                      /* Now rfs_dequeue the file */
+                      CALL rfs_dequeue fullrfsname
+                      IF RESULT <> 0 THEN DO
+                        rfslib_msgline = 'DEQUEUE ERROR, 'RESULT
+                      END
+                    END
+                    ELSE DO
+                      PARSE VAR RESULT enqtmp .
+                      enqtmp = STRIP(enqtmp,'B')
+                      IF enqtmp <> 'RLS' THEN DO
+                        rfslib_msgline = 'FILE IN USE BY 'RESULT
+                      END
+                      ELSE DO
+                        rfslib_msgline = 'ENQUEUE ERROR, 'RESULT
+                      END
+                    END
+                    input_stem.i = '*'
+                    newfnam_stem.i = ''
+                    newftyp_stem.i = ''
+                  END
+                  ELSE DO
+                    tgtfilename = srcfilename
+                    PARSE UPPER VAR tgtfilename tgtfilename
+                    /* Perform rfs_enqueue of file */
+                    CALL rfs_enqueue fullrfsname
+                    IF RESULT = 0 THEN DO
+                      CALL rfslibf
+                      IF RESULT <> 0 THEN DO
+                        rfslib_msgline = 'COPY/MOVE RC='RESULT'.'
+                      END
+                      /* Now rfs_dequeue the file */
+                      CALL rfs_dequeue fullrfsname
+                      IF RESULT <> 0 THEN DO
+                        rfslib_msgline = 'DEQUEUE ERROR, 'RESULT
+                      END
+                    END
+                    ELSE DO
+                      PARSE VAR RESULT enqtmp .
+                      enqtmp = STRIP(enqtmp,'B')
+                      IF enqtmp <> 'RLS' THEN DO
+                        rfslib_msgline = 'FILE IN USE BY 'RESULT
+                      END
+                      ELSE DO
+                        rfslib_msgline = 'ENQUEUE ERROR, 'RESULT
+                      END
+                    END
+                    input_stem.i = '*'
+                    newfnam_stem.i = ''
+                    newftyp_stem.i = ''
+                  END
+                END
+                ELSE DO
+                  rfslib_msgline = 'INVALID SELECTION MADE.'
+                END
+              END
+              ELSE DO
+                rfslib_msgline = 'INVALID SELECTION MADE.'
+              END
+            END
+            WHEN input_stem.i = '5' THEN DO
+              /* **** DELETE ******************************** */
+              IF disp_stem1.i <> '' THEN DO
+                IF rt.rec = 'F' THEN DO
+                  fnam = STRIP(fn.rec)
+                  ftyp = STRIP(ft.rec)
+                  IF ftyp = '' THEN DO
+                    fullrfsname = rfsdir || fnam
+                  END
+                  ELSE DO
+                    fullrfsname = rfsdir || fnam'.'ftyp
+                  END
+                  /* Perform rfs_enqueue of file */
+                  CALL rfs_enqueue fullrfsname
+                  IF RESULT = 0 THEN DO
+                    'RFS DELETE 'fullrfsname
+                    IF rc = 0 THEN DO
+                      input_stem.i = '*'
+                      fn.rec = ''
+                      ft.rec = ''
+                      rt.rec = ''
+                      dt.rec = ''
+                      tm.rec = ''
+                      sr.rec = ''
+                    END
+                    ELSE DO
+                      rfslib_msgline = 'DELETE FAILED. RC='rc'.'
+                    END
+                    /* Now rfs_dequeue the file */
+                    CALL rfs_dequeue fullrfsname
+                    IF RESULT <> 0 THEN DO
+                      rfslib_msgline = 'DEQUEUE ERROR, 'RESULT
+                    END
+                  END
+                  ELSE DO
+                    PARSE VAR RESULT enqtmp .
+                    enqtmp = STRIP(enqtmp,'B')
+                    IF enqtmp <> 'RLS' THEN DO
+                      rfslib_msgline = 'FILE IN USE BY 'RESULT
+                    END
+                    ELSE DO
+                      rfslib_msgline = 'ENQUEUE ERROR, 'RESULT
+                    END
+                  END
+                END
+                ELSE DO
+                  fnam = STRIP(fn.rec)
+                  ftyp = STRIP(ft.rec)
+                  IF ftyp = '' THEN DO
+                    fullrfsname = rfsdir || fnam
+                  END
+                  ELSE DO
+                    fullrfsname = rfsdir || fnam'.'ftyp
+                  END
+                  'RFS RDIR 'fullrfsname
+                  IF rc = 0 THEN DO
+                    input_stem.i = '*'
+                    fn.rec = ''
+                    ft.rec = ''
+                    rt.rec = ''
+                    dt.rec = ''
+                    tm.rec = ''
+                    sr.rec = ''
+                  END
+                  ELSE DO
+                    rfslib_msgline = 'RDIR FAILED. RC='rc'.'
+                  END
+                END
+              END
+              ELSE DO
+                rfslib_msgline = 'INVALID SELECTION MADE.'
+              END
+            END
+            WHEN input_stem.i = '6' THEN DO
+              /* **** RENAME ******************************** */
+              IF disp_stem1.i <> '' THEN DO
+                IF rt.rec = 'F' THEN DO
+                  fnam = STRIP(fn.rec)
+                  ftyp = STRIP(ft.rec)
+                  PARSE UPPER VAR newfnam_stem.i newfnam_stem.i
+                  PARSE UPPER VAR newftyp_stem.i newftyp_stem.i
+                  IF ftyp = '' THEN DO
+                    fullrfsname = fnam
+                  END
+                  ELSE DO
+                    fullrfsname = fnam'.'ftyp
+                  END
+                  IF newftyp_stem.i = '' THEN DO
+                    targetname = newfnam_stem.i
+                  END
+                  ELSE DO
+                    targetname = newfnam_stem.i'.'newftyp_stem.i
+                  END
+                  IF STRIP(newfnam_stem.i,'B') <> '' THEN DO
+                    enqrfsname = rfsdir || fullrfsname
+                    /* Perform rfs_enqueue of file */
+                    CALL rfs_enqueue enqrfsname
+                    IF RESULT = 0 THEN DO
+                      'RFS RENAME 'fullrfsname' 'targetname
+                      IF RESULT <> 0 THEN DO
+                        rfslib_msgline = 'RENAME RC='RESULT'.'
+                      END
+                      /* Now rfs_dequeue the file */
+                      CALL rfs_dequeue enqrfsname
+                      IF RESULT <> 0 THEN DO
+                        rfslib_msgline = 'DEQUEUE ERROR, 'RESULT
+                      END
+                      newfnam_stem.i = ''
+                      newftyp_stem.i = ''
+                      dt.rec = 'RENAMED'
+                      tm.rec = ''
+                      sr.rec = ''
+                    END
+                    ELSE DO
+                      PARSE VAR RESULT enqtmp .
+                      enqtmp = STRIP(enqtmp,'B')
+                      IF enqtmp <> 'RLS' THEN DO
+                        rfslib_msgline = 'FILE IN USE BY 'RESULT
+                      END
+                      ELSE DO
+                        rfslib_msgline = 'ENQUEUE ERROR, 'RESULT
+                      END
+                    END
+                    input_stem.i = '*'
+                  END
+                  ELSE DO
+                    rfslib_msgline = 'YOU MUST SPECIFY A NEW NAME.'
+                  END
+                END
+                ELSE DO
+                  rfslib_msgline = 'INVALID SELECTION MADE.'
+                END
+              END
+              ELSE DO
+                rfslib_msgline = 'INVALID SELECTION MADE.'
+              END
+            END
+            WHEN input_stem.i = '7' THEN DO
+              /* **** SUBMIT ******************************** */
+              IF disp_stem1.i <> '' THEN DO
+                IF rt.rec = 'F' THEN DO
+                  fnam = STRIP(fn.rec)
+                  ftyp = STRIP(ft.rec)
+                  IF ftyp <> 'JCL' THEN DO
+                    rfslib_msgline = 'MEMBERTYPE MUST BE .JCL'
+                  END
+                  ELSE DO
+                    IF ftyp = '' THEN DO
+                      fullrfsname = fnam
+                    END
+                    ELSE DO
+                      fullrfsname = fnam'.'ftyp
+                    END
+                    enqrfsname = rfsdir || fullrfsname
+                    /* Perform rfs_enqueue of file */
+                    CALL rfs_enqueue enqrfsname
+                    IF RESULT = 0 THEN DO
+                      CALL RFSSUBMT fullrfsname SILENT
+                      IF RESULT <> 0 THEN DO
+                        IF RESULT = 99 THEN DO
+                          rfslib_msgline = 'NOT AUTHORIZED FOR SUBMIT'
+                          rfslib_msgline = rfslib_msgline' OPTION.'
+                        END
+                        ELSE DO
+                          rfslib_msgline = 'SUBMIT RC='RESULT'.'
+                        END
+                      END
+                      /* Now rfs_dequeue the file */
+                      CALL rfs_dequeue enqrfsname
+                      IF RESULT <> 0 THEN DO
+                        rfslib_msgline = 'DEQUEUE ERROR, 'RESULT
+                      END
+                    END
+                    ELSE DO
+                      PARSE VAR RESULT enqtmp .
+                      enqtmp = STRIP(enqtmp,'B')
+                      IF enqtmp <> 'RLS' THEN DO
+                        rfslib_msgline = 'FILE IN USE BY 'RESULT
+                      END
+                      ELSE DO
+                        rfslib_msgline = 'ENQUEUE ERROR, 'RESULT
+                      END
+                    END
+                    input_stem.i = '*'
+                  END
+                END
+                ELSE DO
+                  rfslib_msgline = 'INVALID SELECTION MADE.'
+                END
+              END
+              ELSE DO
+                rfslib_msgline = 'INVALID SELECTION MADE.'
+              END
+            END
+            WHEN input_stem.i = '8' THEN DO
+              /* **** COMPILE ******************************* */
+              IF disp_stem1.i <> '' THEN DO
+                IF rt.rec = 'F' THEN DO
+                  CALL RFSAUTH COMPILE
+                  IF RESULT <> 0 THEN DO
+                    rfslib_msgline = 'NOT AUTHORIZED FOR COMPILE'
+                    rfslib_msgline = rfslib_msgline' OPTION.'
+                    input_stem.i = '*'
+                  END
+                  ELSE DO
+                    fnam = STRIP(fn.rec)
+                    ftyp = STRIP(ft.rec)
+                    IF ftyp = '' THEN DO
+                      srcfilename = fnam
+                    END
+                    ELSE DO
+                      srcfilename = fnam'.'ftyp
+                    END
+                    enqrfsname = rfsdir || srcfilename
+                    /* Perform rfs_enqueue of file */
+                    CALL rfs_enqueue enqrfsname
+                    IF RESULT = 0 THEN DO
+                      CALL rfslibc
+                      IF RESULT <> 0 THEN DO
+                        IF RESULT = 8 THEN DO
+                          rfslib_msgline = 'COMPILE PROCESS ABORTED'
+                          rfslib_msgline = rfslib_msgline' BY USER.'
+                        END
+                        ELSE DO
+                          rfslib_msgline = 'COMPILE PROCESS ERROR,'
+                          rfslib_msgline = rfslib_msgline' 'RESULT'.'
+                        END
+                      END
+                      ELSE DO
+                        rfslib_msgline = 'COMPILE JOB SUBMITTED.'
+                      END
+                      /* Now rfs_dequeue the file */
+                      CALL rfs_dequeue enqrfsname
+                      IF RESULT <> 0 THEN DO
+                        rfslib_msgline = 'DEQUEUE ERROR, 'RESULT
+                      END
+                    END
+                    ELSE DO
+                      PARSE VAR RESULT enqtmp .
+                      enqtmp = STRIP(enqtmp,'B')
+                      IF enqtmp <> 'RLS' THEN DO
+                        rfslib_msgline = 'FILE IN USE BY 'RESULT
+                      END
+                      ELSE DO
+                        rfslib_msgline = 'ENQUEUE ERROR, 'RESULT
+                      END
+                    END
+                    input_stem.i = '*'
+                  END
+                END
+                ELSE DO
+                  rfslib_msgline = 'INVALID SELECTION MADE.'
+                END
+              END
+              ELSE DO
+                rfslib_msgline = 'INVALID SELECTION MADE.'
+              END
+            END
+            WHEN input_stem.i = '9' THEN DO
+              /* **** DISPLAY ******************************* */
+              maxrc = 0
+              IF disp_stem1.i <> '' THEN DO
+                IF rt.rec = 'F' THEN DO
+                  fnam = STRIP(fn.rec)
+                  ftyp = STRIP(ft.rec)
+                  IF ftyp = '' THEN DO
+                    fullrfsname = rfsdir || fnam
+                    temprfsdir = basedir'\'tuser'\'fnam
+                    temprfsfile = temprfsdir'\****VIEW.ONLY****'
+                  END
+                  ELSE DO
+                    fullrfsname = rfsdir || fnam'.'ftyp
+                    temprfsdir = basedir'\'tuser'\'fnam'.'ftyp
+                    temprfsfile = temprfsdir'\****VIEW.ONLY****'
+                  END
+                  IF ftyp = 'PANOBJ' THEN DO
+                    rfslib_msgline ='PANOBJ MEMBERS CANNOT BE DISPLAYED.'
+                  END
+                  ELSE DO
+                    'RFS MKDIR 'temprfsdir
+                    IF rc = 0 THEN DO
+                      'RFS COPY 'fullrfsname' 'temprfsfile
+                      IF rc = 0 THEN DO
+                        'EDIT 'temprfsfile' (MACRO EDITPROF'
+                        IF RESULT = 0 THEN DO
+                          'RFS DELETE 'temprfsfile
+                          IF rc = 0 THEN DO
+                            'RFS RDIR 'temprfsdir
+                            IF rc <> 0 THEN DO
+                              maxrc = rc
+                              lastfunc = 'RDIR'
+                            END
+                          END
+                          ELSE DO
+                            maxrc = rc
+                            lastfunc = 'DELETE'
+                          END
+                        END
+                        ELSE DO
+                          maxrc = RESULT
+                          lastfunc = 'EDIT'
+                        END
+                      END
+                      ELSE DO
+                        maxrc = rc
+                        lastfunc = 'COPY'
+                      END
+                    END
+                    ELSE DO
+                      maxrc = rc
+                      lastfunc = 'MKDIR'
+                    END
+                    IF maxrc <> 0 THEN DO
+                      rfslib_msgline = 'DISPLAY RC='maxrc'('lastfunc').'
+                    END
+                  END
+                  input_stem.i = '*'
+                END
+                ELSE DO
+                  rfslib_msgline = 'INVALID SELECTION MADE.'
+                END
+              END
+              ELSE DO
+                rfslib_msgline = 'INVALID SELECTION MADE.'
+              END
+            END
+            OTHERWISE
+              IF display_stem.i <> '' THEN DO
+                rfsldlst_msgline = 'INVALID OPTION SPECIFIED.'
+              END
+              ELSE DO
+                rfslib_msgline = 'INVALID SELECTION MADE.'
+              END
+          END
+        END
+      END
+    END
+    OTHERWISE
+      rfslib_msgline = 'USE ONLY THE ENTER KEY '
+      rfslib_msgline = rfslib_msgline'OR ONE OF THE KEYS '
+      rfslib_msgline = rfslib_msgline'LISTED ABOVE.'
+  END
+END
+EXIT 0
+sortrfsdir:
+/*********************************************************/
+/* Perform bubblesort on DATA. stem (RFS Driectory data) */
+/*********************************************************/
+ARG sfield sorder
+SELECT
+  WHEN sfield = 'NAME' THEN DO
+    fcol = 1
+    tcol = 17
+  END
+  WHEN sfield = 'TYPE' THEN DO
+    fcol = 10
+    tcol = 17
+  END
+  WHEN sfield = 'DATE' THEN DO
+    fcol = 40
+    tcol = 58
+  END
+  WHEN sfield = 'RECORDS' THEN DO
+    fcol = 21
+    tcol = 27
+  END
+  WHEN sfield = 'BYTES' THEN DO
+    fcol = 29
+    tcol = 38
+  END
+  OTHERWISE
+    /* Default to NAME */
+    fcol = 1
+    tcol = 17
+END
+slen = tcol - fcol + 1
+DO i = DATA.0 TO 1 BY -1 UNTIL flip_flop = 1
+  flip_flop = 1
+  DO j = 2 TO i
+    m = j - 1
+    IF SUBSTR(DATA.m,fcol,slen) >> SUBSTR(DATA.j,fcol,slen) THEN
+    DO
+      xchg   = DATA.m
+      DATA.m = DATA.j
+      DATA.j = xchg
+      flip_flop = 0
+    END
+  END
+END
+IF sorder = 'D' THEN DO
+  rec = 1
+  DO r = DATA.0 TO 1 BY -1
+    tempstem.rec = DATA.r
+    rec = rec + 1
+  END
+  tempstem.0 = DATA.0
+  DO r = 1 TO tempstem.0
+    DATA.r = tempstem.r
+  END
+  DROP tempstem. r rec
+END
+DROP i j m flip_flop
+RETURN 0
+rfsliba:
+/*************************************************/
+/* Display RFSLIBA "New file or Directory" panel */
+/*************************************************/
+rfsliba_msgline = ''
+newname = ''
+newdir = ''
+rfsliba_attrib = ''
+rfsliba_cursloc = 'CU(newname)'
+/**************************************************************/
+/* Now start 'FOREVER' loop to process display and user input */
+/**************************************************************/
+DO FOREVER
+  'PANEL SEND rfsliba' ppath rfsliba_attrib rfsliba_cursloc
+  IF rc > 4 THEN SIGNAL error
+  'PANEL RECEIVE rfsliba'
+  IF rc > 4 THEN SIGNAL error
+  rfsliba_msgline = ''
+  /**********************************/
+  /* Process PF Keys and user input */
+  /**********************************/
+  SELECT
+    /* PF3 to exit */
+    WHEN pan.aid = 'PF3' THEN DO
+      RETURN 8
+    END
+    /* PF1 for Help (When available) */
+    WHEN pan.aid = 'PF1' THEN DO
+      rfsliba_msgline = 'HELP NOT AVAILABLE.'
+    END
+    /* ENTER to process user input */
+    WHEN pan.aid = 'ENTER' THEN DO
+      /* **** Validate input data **** */
+      PARSE UPPER VAR newname newname
+      PARSE UPPER VAR newdir newdir
+      IF newname = '' THEN DO
+        IF newdir = '' THEN DO
+          rfsliba_msgline = 'ENTER NEW FILE OR DIR NAME TO'
+          rfsliba_msgline = rfsliba_msgline' CONTINUE OR HIT PF3 TO'
+          rfsliba_msgline = rfsliba_msgline' CANCEL THIS FUNCTION.'
+          rfsliba_cursloc = 'CU(newname)'
+        END
+        ELSE DO
+          /* Create new directory */
+          newrfsname = rfsdir || newdir
+          'RFS CKDIR 'newrfsname
+          IF rc <> 0 THEN DO
+            IF rc = 113 THEN DO
+              'RFS MKDIR 'newrfsname
+              IF rc = 0 THEN DO
+                'RFS AUTH 'newrfsname' SECURED'
+                RETURN 0
+              END
+              ELSE DO
+                rfsliba_msgline = 'UNKNOWN ERROR. RFS MKDIR RC='rc'.'
+                rfsliba_cursloc = 'CU(newdir)'
+              END
+            END
+            ELSE DO
+              rfsliba_msgline = 'UNKNOWN ERROR. RFS CKDIR RC='rc'.'
+              rfsliba_cursloc = 'CU(newdir)'
+            END
+          END
+          ELSE DO
+            rfsliba_msgline = 'DIR ALREADY EXISTS. PLEASE SPECIFY'
+            rfsliba_msgline = rfsliba_msgline' A DIFFERENT NAME.'
+            rfsliba_cursloc = 'CU(newdir)'
+          END
+        END
+      END
+      ELSE DO
+        IF newdir = '' THEN DO
+          /* Invoke EDIT of new file */
+          newrfsname = rfsdir || newname
+          'RFS CKFILE 'newrfsname
+          IF rc <> 0 THEN DO
+            IF rc = 103 THEN DO
+              'EDIT 'newrfsname' (MACRO EDITPROF'
+              RETURN 0
+            END
+            ELSE DO
+              rfsliba_msgline = 'UNKNOWN ERROR. RFS CKFILE RC='rc'.'
+              rfsliba_cursloc = 'CU(newname)'
+            END
+          END
+          ELSE DO
+            rfsliba_msgline = 'FILE ALREADY EXISTS. PLEASE SPECIFY'
+            rfsliba_msgline = rfsliba_msgline' A DIFFERENT NAME.'
+            rfsliba_cursloc = 'CU(newname)'
+          END
+        END
+        ELSE DO
+          rfsliba_msgline = 'ONLY ENTER NEW FILE OR DIR NAME,'
+          rfsliba_msgline = rfsliba_msgline' NOT BOTH.'
+          rfsliba_cursloc = 'CU(newname)'
+        END
+      END
+    END
+    OTHERWISE
+      rfsliba_msgline = 'INVALID KEY PRESSED.'
+  END
+END
+RETURN 0
+rfslibf:
+/**********************************************/
+/* Display RFSLIBF "RFS FILE COPY/MOVE" panel */
+/**********************************************/
+rfslibf_msgline = ''
+ma = 'NO'
+ra = 'NO'
+rfslibf_attrib = ''
+IF srcfilename = tgtfilename THEN DO
+  rfslibf_cursloc = 'CU(tgtdir)'
+END
+ELSE DO
+  rfslibf_cursloc = 'CU(ra)'
+END
+rfslibf_skip:
+/**************************************************************/
+/* Now start 'FOREVER' loop to process display and user input */
+/**************************************************************/
+DO FOREVER
+  'PANEL SEND rfslibf' ppath rfslibf_attrib rfslibf_cursloc
+  IF rc > 4 THEN SIGNAL error
+  'PANEL RECEIVE rfslibf'
+  IF rc > 4 THEN SIGNAL error
+  rfslibf_msgline = ''
+  rfslibf_attrib = ''
+  /**********************************/
+  /* Process PF Keys and user input */
+  /**********************************/
+  SELECT
+    /* PF3 to exit */
+    WHEN pan.aid = 'PF3' THEN DO
+      RETURN 0
+    END
+    /* PF1 for Help (When available) */
+    WHEN pan.aid = 'PF1' THEN DO
+      rfslibf_msgline = 'HELP NOT AVAILABLE.'
+    END
+    /* ENTER to process user input */
+    WHEN pan.aid = 'ENTER' THEN DO
+      /* **** Validate input data **** */
+      PARSE UPPER VAR ma ma
+      PARSE UPPER VAR ra ra
+      PARSE UPPER VAR tgtdir tgtdir
+      PARSE UPPER VAR tgtfilename tgtfilename
+      SELECT
+        WHEN ma = '' THEN DO
+          rfslibf_msgline = 'PLEASE SPECIFY YES OR NO FOR MOVE.'
+          rfslibf_cursloc = 'CU(ma)'
+          rfslibf_attrib = 'AT(ma RED)'
+          SIGNAL rfslibf_skip
+        END
+        WHEN ma <> '' THEN DO
+          SELECT
+            WHEN ma = 'YES' THEN DO
+            END
+            WHEN ma = 'NO' THEN DO
+            END
+            OTHERWISE
+              rfslibf_msgline = 'VALID ANSWERS ARE YES OR NO ONLY.'
+              rfslibf_cursloc = 'CU(ma)'
+              rfslibf_attrib = 'AT(ma RED)'
+              SIGNAL rfslibf_skip
+          END
+          SELECT
+            WHEN ra = 'YES' THEN DO
+            END
+            WHEN ra = 'NO' THEN DO
+            END
+            OTHERWISE
+              rfslibf_msgline = 'VALID ANSWERS ARE YES OR NO ONLY.'
+              rfslibf_cursloc = 'CU(ra)'
+              rfslibf_attrib = 'AT(ra RED)'
+              SIGNAL rfslibf_skip
+          END
+        END
+        WHEN tgtdir = '' THEN DO
+          rfslibf_msgline = 'OUTPUT LIBRARY NAME MUST BE SPECIFIED.'
+          rfslibf_cursloc = 'CU(tgtdir)'
+          rfslibf_attrib = 'AT(tgtdir RED)'
+          SIGNAL rfslibf_skip
+        END
+        WHEN tgtfilename = '' THEN DO
+          rfslibf_msgline = 'OUTPUT FILE NAME MUST BE SPECIFIED.'
+          rfslibf_cursloc = 'CU(tgtfilename)'
+          rfslibf_attrib = 'AT(tgtfilename RED)'
+          SIGNAL rfslibf_skip
+        END
+        WHEN ra = '' THEN DO
+          rfslibf_msgline = 'PLEASE SPECIFY YES OR NO FOR REPLACE.'
+          rfslibf_cursloc = 'CU(ra)'
+          rfslibf_attrib = 'AT(ra RED)'
+          SIGNAL rfslibf_skip
+        END
+        OTHERWISE
+      END
+      /* Now process copy/move operation */
+      fullsrcname = rfsdir || srcfilename
+      fulltgtname = tgtdir || tgtfilename
+      /* First we need to verify that the target dir exists */
+      'RFS CKDIR 'tgtdir
+      IF rc <> 0 THEN DO
+        IF rc = 113 THEN DO
+          rfslibf_msgline = 'OUTPUT DIR DOES NOT EXIST.'
+          rfslibf_cursloc = 'CU(tgtdir)'
+          rfslibf_attrib = 'AT(tgtdir RED)'
+          SIGNAL rfslibf_skip
+        END
+        ELSE DO
+          rfslibf_msgline = 'RFS CKDIR ERROR, RC='rc'.'
+          rfslibf_cursloc = 'CU(tgtdir)'
+          rfslibf_attrib = 'AT(tgtdir RED)'
+          SIGNAL rfslibf_skip
+        END
+      END
+      /* Now check if target file exists. */
+      'RFS CKFILE 'fulltgtname
+      IF rc = 0 THEN DO
+        /* Target file exists, Replace=Yes? */
+        IF ra = 'YES' THEN DO
+          'RFS DELETE 'fulltgtname
+          IF rc <> 0 THEN DO
+            rfslibf_msgline = 'RFS DELETE ERROR, RC='rc'.'
+            rfslibf_cursloc = 'CU(tgtfilename)'
+            rfslibf_attrib = 'AT(tgtfilename RED)'
+            SIGNAL rfslibf_skip
+          END
+        END
+        ELSE DO
+          rfslibf_msgline = 'OUTPUT FILE ALREADY EXISTS, REPLACE?'
+          rfslibf_cursloc = 'CU(ra)'
+          rfslibf_attrib = 'AT(ra RED)'
+          SIGNAL rfslibf_skip
+        END
+      END
+      ELSE DO
+        IF rc <> 103 THEN DO
+          rfslibf_msgline = 'RFS CKFILE ERROR, RC='rc'.'
+          rfslibf_cursloc = 'CU(tgtfilename)'
+          rfslibf_attrib = 'AT(tgtfilename RED)'
+          SIGNAL rfslibf_skip
+        END
+      END
+      'RFS COPY 'fullsrcname' 'fulltgtname
+      IF rc = 0 THEN DO
+        IF ma = 'YES' THEN DO
+          'RFS DELETE 'fullsrcname
+          IF rc <> 0 THEN DO
+            rfslibf_msgline = 'RFS DELETE ERROR, RC='rc'.'
+            rfslibf_cursloc = 'CU(ma)'
+            rfslibf_attrib = 'AT(ma RED)'
+            SIGNAL rfslibf_skip
+          END
+          ELSE DO
+            /* Move successful */
+            rfslib_msgline = 'MOVE COMPLETE.'
+            dt.rec = 'MOVED'
+            tm.rec = ''
+            sr.rec = ''
+            RETURN 0
+          END
+        END
+        ELSE DO
+          /* Copy successful */
+          rfslib_msgline = 'COPY COMPLETE.'
+          RETURN 0
+        END
+      END
+      ELSE DO
+        IF rc = 105 THEN DO
+          rfslibf_msgline = 'OUTPUT FILE ALREADY EXISTS.'
+          rfslibf_cursloc = 'CU(tgtfilename)'
+          rfslibf_attrib = 'AT(tgtfilename RED)'
+          SIGNAL rfslibf_skip
+        END
+        ELSE DO
+          IF rc = 104 THEN DO
+            rfslibf_msgline = 'NOT AUTHORIZED FOR OUTPUT LIBRARY.'
+          END
+          ELSE DO
+            rfslibf_msgline = 'RFS COPY ERROR, RC='rc'.'
+          END
+          SIGNAL rfslibf_skip
+        END
+      END
+    END
+    OTHERWISE
+      rfslibf_msgline = 'INVALID KEY PRESSED.'
+  END
+END
+RETURN 0
+rfslibc:
+/**************************************************/
+/* Now IMPORT RFSCOMP.CONFIG from PRD2.CONFIG to  */
+/* Retrieve list of Compile skeletons.            */
+/**************************************************/
+configlib = 'PRD2.CONFIG'
+ADDRESS REXXCICS 'CD'
+filepath = RESULT
+fullpath = filepath || 'CM$RFS$.'USERID()
+'IMPORT 'configlib'(RFSCOMP.CONFIG) 'fullpath
+IF rc <> 0 THEN DO
+/* SAY 'Error importing RFSCOMP.CONFIG from VSE library. RC='rc */
+  EXIT rc
+END
+/* Now read temporary RFS File into STEM for processing */
+'RFS DISKR CM$RFS$.'USERID()
+IF rc <> 0 THEN DO
+/* SAY 'Error reading CM$RFS$ RFS File. RC='rc */
+  EXIT rc
+END
+/* Temporary RFS file now longer needed, delete it.     */
+'RFS DELETE CM$RFS$.'USERID()
+/* Now process from RFSCOMP.CONFIG member.    */
+DO ii = 1 TO DATA.0
+  PARSE VAR DATA.ii compo_stem.ii comps_stem.ii compd_stem.ii
+  UPPER compo_stem.ii
+  UPPER comps_stem.ii
+END
+DO ii = (DATA.0 + 1) TO 36
+  compo_stem.ii = ''
+  comps_stem.ii = ''
+  compd_stem.ii = ''
+END
+compoptcnt = DATA.0
+compo_stem.0 = 36
+comps_stem.0 = 36
+compd_stem.0 = DATA.0
+/*******************************************/
+/* Display RFSLIBC "Compile Program" panel */
+/*******************************************/
+rfslibc_msgline = ''
+compileproc = ''
+rfslibc_attrib = ''
+rfslibc_cursloc = 'CU(compileproc)'
+/**************************************************************/
+/* Now start 'FOREVER' loop to process display and user input */
+/**************************************************************/
+DO FOREVER
+  'PANEL SEND rfslibc' ppath rfslibc_attrib rfslibc_cursloc
+  IF rc > 4 THEN SIGNAL error
+  'PANEL RECEIVE rfslibc'
+  IF rc > 4 THEN SIGNAL error
+  rfsliba_msgline = ''
+  /**********************************/
+  /* Process PF Keys and user input */
+  /**********************************/
+  SELECT
+    /* PF3 to exit */
+    WHEN pan.aid = 'PF3' THEN DO
+      RETURN 8
+    END
+    /* PF5 to display descriptions of the Compile Procs */
+    WHEN pan.aid = 'PF5' THEN DO
+      CALL RFSCOMPD
+    END
+    /* ENTER to process user input */
+    WHEN pan.aid = 'ENTER' THEN DO
+      /* **** Validate input data **** */
+      PARSE UPPER VAR compileproc compileproc
+      IF compileproc = '' THEN DO
+        rfslibc_msgline = 'ENTER COMPILE OPTION TO'
+        rfslibc_msgline = rfslibc_msgline' CONTINUE OR HIT PF3 TO'
+        rfslibc_msgline = rfslibc_msgline' CANCEL THIS FUNCTION.'
+        rfslibc_cursloc = 'CU(compileproc)'
+      END
+      ELSE DO
+        rfscompflag = 0
+        DO cc = 1 TO compoptcnt
+          IF compileproc = compo_stem.cc THEN DO
+            /* Process skeleton and submit */
+            CALL RFSCOMP comps_stem.cc srcfilename SILENT
+            IF RESULT <> 0 THEN DO
+              RETURN 'RFSCOMP ERROR, RC='RESULT
+            END
+            ELSE DO
+              rfscompflag = 1
+              RETURN 0
+            END
+          END
+        END
+        IF rfscompflag <> 1 THEN DO
+          rfslibc_msgline = 'INVALID COMPILE OPTION SPECIFIED.'
+          rfslibc_cursloc = 'CU(compileproc)'
+        END
+      END
+    END
+    OTHERWISE
+      rfslibc_msgline = 'INVALID KEY PRESSED.'
+  END
+END
+RETURN 0
+rfs_enqueue:
+/************************************************/
+/* Create "enqueue" record in RLS DIR \ENQUEUES */
+/************************************************/
+ARG enqueuename
+enqueue_result = ''
+enqueuename = STRIP(enqueuename,'B')
+PARSE UPPER VAR enqueuename enqueuename
+rlsvarname = TRANSLATE(enqueuename,'!_',':\')
+'RLS VARGET 'rlsvarname' \ENQUEUES'
+IF rc = 0 THEN DO
+  /* RFS file already enqueued */
+  INTERPRET 'enqueue_result = 'rlsvarname
+  RETURN enqueue_result
+END
+ELSE DO
+  IF rc = 753 THEN DO
+    INTERPRET rlsvarname" = '"USERID()"-"DATE('S')"-"TIME()"'"
+    'RLS VARPUT 'rlsvarname' \ENQUEUES'
+    IF rc = 0 THEN DO
+      RETURN 0
+    END
+    ELSE DO
+      enqueue_result = 'RLS VARPUT(ENQUEUE) ERROR, RC='rc
+      RETURN enqueue_result
+    END
+  END
+  ELSE DO
+    enqueue_result = 'RLS VARGET(ENQUEUE) ERROR, RC='rc
+    RETURN enqueue_result
+  END
+END
+RETURN 99
+rfs_dequeue:
+/************************************************/
+/* Delete "enqueue" record in RLS DIR \ENQUEUES */
+/************************************************/
+ARG enqueuename
+dequeue_result = ''
+enqueuename = STRIP(enqueuename,'B')
+PARSE UPPER VAR enqueuename enqueuename
+rlsvarname = TRANSLATE(enqueuename,'!_',':\')
+'RLS VARGET 'rlsvarname' \ENQUEUES'
+IF rc = 0 THEN DO
+  /* VARDROP the enqueue RLS variable */
+  'RLS VARDROP 'rlsvarname' \ENQUEUES'
+  IF rc = 0 THEN DO
+    RETURN 0
+  END
+  ELSE DO
+    dequeue_result = 'RLS VARDROP(DEQUEUE) ERROR, RC='rc
+    RETURN dequeue_result
+  END
+END
+ELSE DO
+/* IF rc = 753 THEN DO
+    /* "enqueue" record not found */
+    RETURN 0
+  END
+  ELSE DO */
+    dequeue_result = 'RLS VARGET(DEQUEUE) ERROR, RC='rc
+    RETURN dequeue_result
+/* END */
+END
+RETURN 99
+error:
+SAY 'RFSLIB ERROR OCCURRED. LAST RC='rc
+'SENDE'
+EXIT

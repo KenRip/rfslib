@@ -1,0 +1,153 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: AUTHFUNC.PROC                                             */
+/*********************************************************************/
+/* This program is used to check if the user is allowed to invoke    */
+/* the passed in function.                                           */
+/*                                                                   */
+/* Current FUNCTIONS supported are...                                */
+/*   SUBMIT    :Queries ESM for CICSREXX.SUBMIT                      */
+/*   JOBCARD   :Queries ESM for CICSREXX.SUBMIT.JOBCARD              */
+/*   JCLID     :Queries ESM for CICSREXX.SUBMIT.JCLID                */
+/*   PRINT     :Queries ESM for CICSREXX.PRINT                       */
+/*   LIBRP     :Queries ESM for CICSREXX.LIBRP                       */
+/*   LIBRC     :Queries ESM for CICSREXX.LIBRC                       */
+/*   PASSWORD  :Returns the USERID's Password from the IESCNTL File. */
+/*                                                                   */
+/*********************************************************************/
+/*********************************************************************/
+/* TRACE ALL */
+ARG in
+tuser = USERID()
+log = '+0000000054'
+nolog = '+0000000055'
+readable = '+0000000035'
+SELECT
+  WHEN in = 'SUBMIT' THEN DO
+    res = 'FACILITY'
+    resid = LEFT('CICSREXX.SUBMIT',246,' ')
+    'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+     READ(cvda) LOGMESSAGE(nolog)'
+    IF cvda = readable THEN DO
+      /* User allowed */
+      RETURN 0
+    END
+    ELSE DO
+      /* User not allowed, generate violation with ESM */
+    'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+     READ(cvda) LOGMESSAGE(log)'
+      RETURN 8
+    END
+  END
+  WHEN in = 'PRINT' THEN DO
+    res = 'FACILITY'
+    resid = LEFT('CICSREXX.PRINT',246,' ')
+    'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+     READ(cvda) LOGMESSAGE(nolog)'
+    IF cvda = readable THEN DO
+      /* User allowed */
+      RETURN 0
+    END
+    ELSE DO
+      /* User not allowed, generate violation with ESM */
+    'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+     READ(cvda) LOGMESSAGE(log)'
+      RETURN 8
+    END
+  END
+  WHEN in = 'JOBCARD' THEN DO
+    res = 'FACILITY'
+    resid = LEFT('CICSREXX.SUBMIT.JOBCARD',246,' ')
+    'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+     READ(cvda) LOGMESSAGE(nolog)'
+    IF cvda = readable THEN DO
+      /* User allowed */
+      RETURN 0
+    END
+    ELSE DO
+      /* User not allowed */
+      RETURN 8
+    END
+  END
+  WHEN in = 'JCLID' THEN DO
+    res = 'FACILITY'
+    resid = LEFT('CICSREXX.SUBMIT.JCLID',246,' ')
+    'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+     READ(cvda) LOGMESSAGE(nolog)'
+    IF cvda = readable THEN DO
+      /* User allowed */
+      RETURN 0
+    END
+    ELSE DO
+      /* User not allowed */
+      RETURN 8
+    END
+  END
+  WHEN in = 'LIBRP' THEN DO
+    res = 'FACILITY'
+    resid = LEFT('CICSREXX.LIBRP',246,' ')
+    'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+     READ(cvda) LOGMESSAGE(nolog)'
+    IF cvda = readable THEN DO
+      /* User allowed */
+      RETURN 0
+    END
+    ELSE DO
+      /* User not allowed, generate violation with ESM */
+    'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+     READ(cvda) LOGMESSAGE(log)'
+      RETURN 8
+    END
+  END
+  WHEN in = 'LIBRC' THEN DO
+    res = 'FACILITY'
+    resid = LEFT('CICSREXX.LIBRC',246,' ')
+    'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+     READ(cvda) LOGMESSAGE(nolog)'
+    IF cvda = readable THEN DO
+      /* User allowed */
+      RETURN 0
+    END
+    ELSE DO
+      /* User not allowed, generate violation with ESM */
+    'CICS QUERY SECURITY RESCLASS(res) RESID(resid) RESIDLENGTH(246)
+     READ(cvda) LOGMESSAGE(log)'
+      RETURN 8
+    END
+  END
+  WHEN in = 'PASSWORD' THEN DO
+    CALL get_iescntl
+    IF RESULT <> 0 THEN DO
+      RETURN 99  /* IESCNTL error    */
+    END
+    RETURN password
+  END
+  OTHERWISE
+    RETURN 12
+END
+RETURN 0
+/* END Mainline Code */
+get_iescntl:
+/* Procedure to retrieve User info from the IESCNTL file */
+tablei = '001020304050607080902131415161718191'X
+tablei = tablei || '122232425262728292132333435363738393'X
+tablei = tablei || '0B3FB8C8BA'X
+tableo = '0123456789STUVWXYZJKLMNOPQRABCDEFGHI  #@$'
+/* Set up key to IESCNTL file record */
+iescntl_type = 'US'
+iescntl_user = LEFT(USERID(),8,'00'X)
+iescntl_pad = '0000'X
+key = iescntl_type || iescntl_user || iescntl_pad
+IESCNTL = 'IESCNTL'
+record = ''
+'CICS READ FILE(IESCNTL) INTO(record) RIDFLD(key)'
+IF rc <> 0 THEN DO
+  SAY 'Error reading IESCNTL file. rc='rc
+  RETURN 14
+END
+/* Current password at offset 43 in IESCNTL file US* record */
+coded_password = SUBSTR(record,43,8)
+password = TRANSLATE(coded_password,tableo,tablei)
+RETURN 0

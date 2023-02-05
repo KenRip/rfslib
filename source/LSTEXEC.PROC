@@ -1,0 +1,13 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: LSTEXEC.PROC                                              */
+/*********************************************************************/
+/* Exec to list all file in POOL2:\EXECLIB                           */
+SAY 'Directory Listing for RFS DIR POOL2:\EXECLIB'
+SAY '==================================================================='
+'DIR POOL2:\EXECLIB (LIST.'
+DO i = 1 TO LIST.0
+  SAY LIST.i
+END

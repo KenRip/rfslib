@@ -1,0 +1,20 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: GETPANEL.PROC                                             */
+/*********************************************************************/
+/* Exec to copy panels from POOL2:\PANELS to current RFS library     */
+ARG in
+IF LENGTH(in) <> 0 THEN DO
+  IF POS(':',in) = 0 THEN DO
+    'RFS COPY POOL2:\PANELS\'in' 'in
+    SAY 'File 'in' copied from POOL2:\PANELS.'
+  END
+  ELSE DO
+    SAY 'Input Paramter should only contain ''member.type'''
+  END
+END
+ELSE DO
+  SAY 'Input Paramter Required.  Please specify ''member.type'''
+END

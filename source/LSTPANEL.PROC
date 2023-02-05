@@ -1,0 +1,13 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: LSTPANEL.PROC                                             */
+/*********************************************************************/
+/* Exec to list all file in POOL2:\PANELS                            */
+SAY 'Directory Listing for RFS DIR POOL2:\PANELS'
+SAY '==================================================================='
+'DIR POOL2:\PANELS (LIST.'
+DO i = 1 TO LIST.0
+  SAY LIST.i
+END

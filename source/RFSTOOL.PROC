@@ -1,0 +1,2011 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: RFSTOOL.PROC                                              */
+/*********************************************************************/
+/*                                                                   */
+/* This REXX procedure is used to process CICS/Rexx RFS files and    */
+/* directories from a batch job.                                     */
+/*  Note: This REXX procedure can restore CICS/Rexx RFS files from   */
+/*        a SAM Disk file that was created using the IBM IDCAMS      */
+/*        REPRO process.  An example of this IDCAMS REPRO is as      */
+/*        follows...                                                 */
+/*                                                                   */
+/*        // DLBL DISKOUT,'RFSDIR1.DISK.BACKUP'                      */
+/*        // EXTENT SYS001                                           */
+/*        // EXEC   IDCAMS,SIZE=AUTO                                 */
+/*              REPRO  INFILE (RFSDIR1)  -                           */
+/*                    OUTFILE (DISKOUT   -                           */
+/*                    ENVIRONMENT        -                           */
+/*                       (RECFM(VB)      -                           */
+/*                        BLKSZ(25000)))                             */
+/*                                                                   */
+/* This REXX procedure also relies on the VSAM-Via-CICS Service be   */
+/* running in the target CICS Region.  This component is documented  */
+/* in the "z/VSE V4R2.0 e-business Connectors, User Guide".          */
+/*                                                                   */
+/* The following CICS Resource definitions are required (supplied in */
+/* the VSESPG RDO Group)...                                          */
+/*                                                                   */
+/*       NAME     TYPE                                               */
+/*       ====     ====                                               */
+/*       IESXACT1 PROFILE                                            */
+/*       IESCVMIR PROGRAM                                            */
+/*       IESCVSRV PROGRAM                                            */
+/*       IESCVSTA PROGRAM                                            */
+/*       IESCVSTI PROGRAM                                            */
+/*       IESCVSTP PROGRAM                                            */
+/*       ICVA     TRANSACTION                                        */
+/*       ICVM     TRANSACTION                                        */
+/*       ICVP     TRANSACTION                                        */
+/*       ICVS     TRANSACTION                                        */
+/*                                                                   */
+/* The JCL and Input Cards for the RFSTOOL PROC are as follows...    */
+/*                                                                   */
+/* // DLBL DIRIN,'RFSDIR1.REPRO.BACKUP'                              */
+/* // EXTENT ,VOL001,,,10000,250                                     */
+/* // ASSGN SYS004,xxx                                               */
+/* // DLBL POLIN1,'RFSPOL1.FILE01.REPRO.BACKUP'                      */
+/* // EXTENT ,VOL001,,,10000,250                                     */
+/* // ASSGN SYS005,xxx                                               */
+/* // DLBL POLIN2,'RFSPOL1.FILE02.REPRO.BACKUP'                      */
+/* // EXTENT ,VOL001,,,10000,250                                     */
+/* // ASSGN SYS006,xxx                                               */
+/* // DLBL POLIN3,'RFSPOL1.FILE03.REPRO.BACKUP'                      */
+/* // EXTENT ,VOL001,,,10000,250                                     */
+/* // ASSGN SYS006,xxx                                               */
+/* // DLBL POLIN4,'RFSPOL1.FILE04.REPRO.BACKUP'                      */
+/* // EXTENT ,VOL001,,,10000,250                                     */
+/* // ASSGN SYS006,xxx                                               */
+/* // EXEC REXX=RFSTOOL                                              */
+/* <INPUT CONTROL CARDS GO HERE>                                     */
+/* /+ <-- THIS WOULD BE AN ASTERICK IN THE JCL                       */
+/*                                                                   */
+/* THE INPUT PARAMETERS INCLUDE THE FOLLOWING...                     */
+/*                                                                   */
+/* CICSREGION aaaaaaaa - CICS Region APPLID where target RFS files   */
+/*                       are located (used for RESTORE processing).  */
+/*                                                                   */
+/* POOLIN dirid poolfile1 poolfile2 poolfile3 poolfile4              */
+/*                     - The original CICS File names of the RFS DIR */
+/*                       and POOL data files being processed from    */
+/*                       input SAM disk files.                       */
+/*                                                                   */
+/* POOLOUT dirid poolfile1 poolfile2 poolfile3 poolfile4             */
+/*                     - The target CICS File names of the RFS DIR   */
+/*                       and POOL data files being processed which   */
+/*                       are defined to the CICS Region specified on */
+/*                       the CICSREGION statement above.             */
+/* REPLACE YES|NO                                                    */
+/*             ==                                                    */
+/*                     - During a RESTOREFILE or RESTOREDIR process  */
+/*                       this option controls whether to replace     */
+/*                       existing files or not.                      */
+/*                                                                   */
+/*  Note: All above "configuration" statements must be specified     */
+/*        before specifying any of the "action" statements below.    */
+/*                                                                   */
+/* DIRECTORY rfsdirid SHORT|FULL POOLIN|POOLOUT                      */
+/*                    =====      ======                              */
+/*    - rfsdirid should be in the following format...                */
+/*      \dirlevel1\dirlevel2 etc.                                    */
+/*      \xxxxx\yyy*                                                  */
+/*    - If "*" is specified as a wildcard it can only be used at the */
+/*      end of the parameter.  i.e. \USERS\A*                        */
+/* RESTOREFILE rfsfileid (-)                                         */
+/*          TO rfsfileid                                             */
+/*    - RESTOREFILE is used to restore an individual RFS file to the */
+/*      original RFS directory.                                      */
+/*    - The "TO" option can specify a target RFS directory and       */
+/*      filename to override the original location and name.         */
+/* RESTOREDIR rfsdirid (-)                                           */
+/*         TO rfsdirid                                               */
+/*    - RESTOREDIR is used to restore all the RFS files found in the */
+/*      original RFS directory.                                      */
+/*    - The "TO" option can specify a target RFS directory to        */
+/*      override the original location.                              */
+/* MAKEDIR rfsdirid rfsdirtype                                       */
+/*    - rfsdirid should be in the following format...                */
+/*      \dirlevel1\dirlevel2 etc.                                    */
+/*    - rfsdirtype can be one of the following...                    */
+/*      PRIVATE, SECURED, PUBLICR, or PUBLICW                        */
+/*               =======                                             */
+/* DELETEDIR rfsdirid                                                */
+/* DELETEFILE rfsfileid                                              */
+/*                                                                   */
+/*        ******* WARNING *************                              */
+/*        The RESTOREFILE, RESTOREDIR, MAKEDIR, DELETEDIR and        */
+/*        DELETEFILE statements all perform update functions to the  */
+/*        CICS Files specified on the POOLOUT statement.             */
+/*                                                                   */
+/*        *** These actions can result in the deletion and/or        */
+/*            replacement of records within the CICS RFS Files which */
+/*            are OPEN and available within the CICS Region          */
+/*            specified.  THIS COULD RESULT IN LOSS OF DATA IF       */
+/*            PROPER PRECAUTIONS ARE NOT TAKEN!                      */
+/*                                                                   */
+/*********************************************************************/
+/*                                                                   */
+/* Messages and Codes:                                               */
+/*                                                                   */
+/* RFSTL01I RFSTOOL.PROC V1.0 - LAST UPDATED MM/DD/2010.             */
+/* RFSTL02E NO SYSIPT DATA SPECIFIED.                                */
+/* RFSTL03E POOLIN STATEMENT MISSING OR INVALID.                     */
+/* RFSTL04E INVALID STATEMENT - keyword                              */
+/* RFSTL05E SAM INPUT FILE 'samfile' NOT AVAILABLE.                  */
+/* RFSTL06E REPLACE STATEMENT MUST SPECIFY 'YES' OR 'NO'.            */
+/* RFSTL07E "TO" STATEMENT ENCOUNTERED BUT NO PREVIOUS               */
+/*          CONTINUATION SPECIFIED.                                  */
+/* RFSTL08E RESTOREFILE COMMAND WITH CONTINUATION NOT FOLLOWED BY    */
+/*          "TO" STATEMENT.                                          */
+/* RFSTL09E RESTOREDIR COMMAND WITH CONTINUATION NOT FOLLOWED BY     */
+/*          "TO" STATEMENT.                                          */
+/* RFSTL10E VSAMIO ERROR (RC=vsamrc) READING RFSDIR FILE DURING      */
+/*          DELETEDIR.                                               */
+/* RFSTL11E VSAMIO DELETE ERROR (RC=vsamrc) DURING DELETEDIR.        */
+/* RFSTL12E VSAMIO READ ERROR (RC=vsamrc) DURING DELETEDIR.          */
+/* RFSTL13E VSAMIO ERROR (RC=vsamrc) READING RFSDIR FILE DURING      */
+/*          DELETEFILE.                                              */
+/* RFSTL14E VSAMIO DELETE ERROR (RC=vsamrc) ON RFSDIR FILE DURING    */
+/*          DELETEFILE.                                              */
+/* RFSTL15E VSAMIO READ ERROR (RC=vsamrc) DURING DELETEFILE.         */
+/* RFSTL16E VSAMIO DELETE ERROR (RC=vsamrc) ON RFSPOLx FILE DURING   */
+/*          DELETEFILE.                                              */
+/* RFSTL17E VSAMIO ERROR (RC=vsamrc) WRITING RFSDIR FILE DURING      */
+/*          MAKEDIR.                                                 */
+/* RFSTL18E VSAMIO ERROR (RC=vsamrc) DURING CHECK_EXIST CALL PROCESS.*/
+/* RFSTL20E DISKIO/VSAMIO ERROR (RC=rc) READING RFSDIR FILE          */
+/* RFSTL21E TARGET DIR DOES NOT EXIST.                               */
+/* RFSTL22E RFSDIR RECORDS NOT FOUND ON SAM INPUT FILE.              */
+/* RFSTL23E RFSPOOL RECORDS NOT FOUND ON SAM INPUT FILE.             */
+/* RFSTL24E SORT OF RFSPOOL RECORDS FAILED. SORTSTEM RC=sortrc.      */
+/* RFSTL25E EXECIO READING SAM FILE samfile. EXECIO RC=samrc.        */
+/* RFSTL26E VSAMIO WRITE OF RFSDIR RECORD FAILED. VSAMIO RC=vsamrc.  */
+/* RFSTL27E EXECIO ERROR READING SAM FILE DIRIN. EXECIO RC=samrc.    */
+/* RFSTL28E EXECIO ERROR READING SAM FILE DIRIN DURING GETPOOLNAME.  */
+/*          EXECIO RC=samrc.                                         */
+/* RFSTL29E VSAMIO ERROR READING RFSDIR FILE DURING GETPOOLNAME.     */
+/*          VSAMIO RC=vsamrc.                                        */
+/* RFSTL30E VSAMIO FAILURE WRITING DATA RECORDS TO TARGET RFSPOL     */
+/*          FILE. VSAMIO RC=vsamrc.                                  */
+/* RFSTL31E DISKIO ERROR (RC=rc) READING RFSDIR FILE DURING          */
+/*          BUILD_FILELISTS.                                         */
+/* RFSTL32E VSAMIO DELETE ERROR (RC=vsamrc) ON RFSDIR FILE DURING    */
+/*          RESTOREFILE.                                             */
+/* RFSTL33E VSAMIO DELETE ERROR (RC=vsamrc) ON RFSDIR FILE DURING    */
+/*          RESTOREDIR.                                              */
+/* RFSTL99I PROCESSING COMPLETE.                                     */
+/*                                                                   */
+/*********************************************************************/
+ARG traceopt
+IF traceopt = 'TRACE' THEN DO
+  TRACE ALL
+END
+msg = 'RFSTL01I RFSTOOL.PROC V1.0.'
+SAY msg
+CALL SENDMSG msg,'SYS'
+
+maxreturncode = 0
+lastreturncode = 0
+rfsdirin = ''
+rfspolin1 = ''
+rfspolin2 = ''
+rfspolin3 = ''
+rfspolin4 = ''
+rfsdirout = ''
+rfspolout1 = ''
+rfspolout2 = ''
+rfspolout3 = ''
+rfspolout4 = ''
+rfsreplace = 'N'
+
+/* Get Input parameters */
+SYSIPT_INPUT:
+'EXECIO * DISKR SYSIPT 1 (STEM SYSIN. FINIS'
+IF SYSIN.0 = 0 THEN DO
+  msg = 'RFSTL02E NO SYSIPT DATA SPECIFIED.'
+  SAY msg
+  CALL SENDMSG msg,'SYS'
+  EXIT 12
+END
+SAY ' '
+SAY ' *** START INPUT ***'
+DO i=1 TO SYSIN.0
+  SAY '  ' || STRIP(SYSIN.I,'T')
+END
+SAY ' **** END INPUT ****'
+
+/* Check SYSIPT syntax */
+ignorenextstatement = 'N'
+DO i=1 TO SYSIN.0
+  PARSE VAR SYSIN.i keyword key_value operands
+  keyword = STRIP(keyword,'B')
+  key_value = STRIP(key_value,'B')
+  operands = STRIP(operands,'B')
+  SELECT
+    WHEN keyword = '' THEN DO
+      /* Skip blank line */
+    END
+    WHEN keyword = 'CICSREGION' THEN DO
+      cicsregion = key_value
+    END
+    WHEN keyword = 'POOLIN' THEN DO
+      rfsdirin = key_value
+      PARSE VAR operands rfspolin1 rfspolin2 rfspolin3 rfspolin4 .
+    END
+    WHEN keyword = 'POOLOUT' THEN DO
+      rfsdirout = key_value
+      PARSE VAR operands rfspolout1 rfspolout2 rfspolout3 rfspolout4 .
+    END
+    WHEN keyword = 'DIRECTORY' THEN DO
+    END
+    WHEN keyword = 'REPLACE' THEN DO
+      SELECT
+        WHEN key_value = 'YES' THEN DO
+          rfsreplace = 'Y'
+        END
+        WHEN key_value = 'NO' THEN DO
+          rfsreplace = 'N'
+        END
+        OTHERWISE
+          msg = "RFSTL06E REPLACE STATEMENT MUST SPECIFY 'YES' OR 'NO'."
+          SAY msg
+          CALL SENDMSG msg,'SYS'
+          EXIT 12
+      END
+    END
+    WHEN keyword = 'RESTOREDIR' THEN DO
+      IF operands = '-' THEN DO
+        i = i + 1
+        PARSE VAR SYSIN.i nkeyword nkey_value noperands
+        nkeyword = STRIP(nkeyword,'B')
+        IF nkeyword = 'TO' THEN DO
+          ignorenextstatement = 'Y'
+          i = i - 1
+        END
+        ELSE DO
+          msg = 'RFSTL09E RESTOREDIR COMMAND WITH CONTINUATION NOT '
+          msg = 'FOLLOWED BY "TO" STATEMENT.'
+          SAY msg
+          CALL SENDMSG msg,'SYS'
+          SAY '  RESTOREDIR NOT PROCESSED.'
+          EXIT 12
+        END
+      END
+    END
+    WHEN keyword = 'RESTOREFILE' THEN DO
+      IF operands = '-' THEN DO
+        i = i + 1
+        PARSE VAR SYSIN.i nkeyword nkey_value noperands
+        nkeyword = STRIP(nkeyword,'B')
+        IF nkeyword = 'TO' THEN DO
+          ignorenextstatement = 'Y'
+          i = i - 1
+        END
+        ELSE DO
+          SAY ' '
+          msg = 'RFSTL08E RESTOREFILE COMMAND WITH CONTINUATION NOT '
+          msg = msg'FOLLOWED BY "TO" STATEMENT.'
+          SAY msg
+          CALL SENDMSG msg,'SYS'
+          SAY '  RESTOREFILE NOT PROCESSED.'
+          EXIT 12
+        END
+      END
+    END
+    WHEN keyword = 'TO' THEN DO
+      IF ignorenextstatement <> 'Y' THEN DO
+        SAY ' '
+        msg = 'RFSTL07E "TO" STATEMENT ENCOUNTERED BUT NO PREVIOUS '
+        msg = msg'CONTINUATION SPECIFIED.'
+        SAY msg
+        CALL SENDMSG msg,'SYS'
+        EXIT 12
+      END
+      ELSE DO
+        ignorenextstatement = 'N'
+      END
+    END
+    WHEN keyword = 'MAKEDIR' THEN DO
+    END
+    WHEN keyword = 'DELETEDIR' THEN DO
+    END
+    WHEN keyword = 'DELETEFILE' THEN DO
+    END
+    OTHERWISE
+      SAY ' '
+      msg = 'RFSTL04E INVALID STATEMENT - 'keyword
+      SAY msg
+      CALL SENDMSG msg,'SYS'
+      EXIT 12
+  END
+END
+/* Now validate POOLIN is specified with at least one pool file */
+IF rfsdirin = '' THEN DO
+  SAY ' '
+  msg = 'RFSTL03E POOLIN STATEMENT MISSING OR INVALID.'
+  SAY msg
+  CALL SENDMSG msg,'SYS'
+  EXIT 12
+END
+ELSE DO
+  /* Verify SAM input file is available */
+  'EXECIO 1 DISKR DIRIN 1 (STEM dirin. BLKSIZE 25000 RECFORM VARBLK'
+  IF rc > 0 THEN DO
+    SAY ' '
+    msg = "RFSTL05E SAM INPUT FILE 'DIRIN ' NOT AVAILABLE."
+    SAY msg
+    CALL SENDMSG msg,'SYS'
+    EXIT 12
+  END
+END
+IF rfspolin1 = '' THEN DO
+  SAY ' '
+  msg = 'RFSTL03E POOLIN STATEMENT MISSING OR INVALID.'
+  SAY msg
+  CALL SENDMSG msg,'SYS'
+  EXIT 12
+END
+ELSE DO
+  /* Verify SAM input file is available */
+  'EXECIO 1 DISKR POLIN1 1 (STEM polin1. BLKSIZE 25000 RECFORM VARBLK'
+  IF rc > 0 THEN DO
+    SAY ' '
+    msg = "RFSTL05E SAM INPUT FILE 'POLIN1' NOT AVAILABLE."
+    SAY msg
+    CALL SENDMSG msg,'SYS'
+    EXIT 12
+  END
+END
+IF rfspolin2 <> '' THEN DO
+  /* Verify SAM input file is available */
+  'EXECIO 1 DISKR POLIN2 1 (STEM polin2. BLKSIZE 25000 RECFORM VARBLK'
+  IF rc > 0 THEN DO
+    SAY ' '
+    msg = "RFSTL05E SAM INPUT FILE 'POLIN2' NOT AVAILABLE."
+    SAY msg
+    CALL SENDMSG msg,'SYS'
+    EXIT 12
+  END
+END
+IF rfspolin3 <> '' THEN DO
+  /* Verify SAM input file is available */
+  'EXECIO 1 DISKR POLIN3 1 (STEM polin3. BLKSIZE 25000 RECFORM VARBLK'
+  IF rc > 0 THEN DO
+    SAY ' '
+    msg = "RFSTL05E SAM INPUT FILE 'POLIN3' NOT AVAILABLE."
+    SAY msg
+    CALL SENDMSG msg,'SYS'
+    EXIT 12
+  END
+END
+IF rfspolin4 <> '' THEN DO
+  /* Verify SAM input file is available */
+  'EXECIO 1 DISKR POLIN4 1 (STEM polin4. BLKSIZE 25000 RECFORM VARBLK'
+  IF rc > 0 THEN DO
+    SAY ' '
+    msg = "RFSTL05E SAM INPUT FILE 'POLIN4' NOT AVAILABLE."
+    SAY msg
+    CALL SENDMSG msg,'SYS'
+    EXIT 12
+  END
+END
+/* Now process the actual commands. */
+DO i=1 TO SYSIN.0
+  PARSE VAR SYSIN.i keyword key_value operands
+  keyword = STRIP(keyword,'B')
+  key_value = STRIP(key_value,'B')
+  operands = STRIP(operands,'B')
+  SELECT
+    WHEN keyword = '' THEN DO
+      /* Skip blank line */
+    END
+    WHEN keyword = 'DIRECTORY' THEN DO
+    /* ************************************************************** */
+    /* **** DIRECTORY Processing ************************************ */
+    /* ************************************************************** */
+      IF lastreturncode > 0 THEN DO
+        SAY ' '
+        SAY ' NON-ZERO RETURN CODE ENCOUNTERED. NO FURTHER PROCESSING.'
+        LEAVE i
+      END
+      rfsdirpath = key_value
+      PARSE VAR operands rfsdirmode dirsrc
+      IF STRIP(dirsrc) = '' THEN DO
+        dirsrc = 'POOLIN'
+      END
+      IF LEFT(rfsdirmode,4) = 'POOL' THEN DO
+        dirsrc = rfsdirmode
+      END
+      IF dirsrc = 'POOLIN' THEN DO
+        'EXECIO * DISKR DIRIN 1 (STEM dirin. BLKSIZE 25000 ' ,
+        'RECFORM VARBLK'
+      END
+      ELSE DO
+        'VSAMIO READ FILENAME 'rfsdirout' RECORDS * STEM dirin. ' ,
+        'OPEN_READ CICS_APPLID 'cicsregion' CLOSE'
+      END
+      IF rc > 0 THEN DO
+        SAY ' '
+        msg = 'RFSTL20E DISKIO/VSAMIO ERROR (RC='rc') '
+        msg = msg'READING RFSDIR FILE.'
+        SAY msg
+        CALL SENDMSG msg,'SYS'
+        lastreturncode = 8
+      END
+      ELSE DO
+        DO j = 1 TO dirin.0
+          IF j = 1 THEN DO
+            SAY ' '
+            SAY ' DIRECTORY('dirsrc') -> '||STRIP(LEFT(rfsdirpath,100))
+            IF dirsrc = 'POOLIN' THEN DO
+              msg = ' ORIGINAL RFS POOL ID FROM BACKUP FILE = '
+              msg = msg || SUBSTR(dirin.j,5,8) || '('
+              jplus1 = j + 1
+              tmplen = POS(':',dirin.jplus1) - 3
+              msg = msg || SUBSTR(dirin.jplus1,3,tmplen) || ')'
+              SAY msg
+            END
+          END
+          ELSE DO
+            IF rfsdirpath = '*' THEN DO
+              CALL print_directory_line
+            END
+            ELSE DO
+              IF RIGHT(rfsdirpath,1) = '*' THEN DO
+                rfsdir = LEFT(rfsdirpath,LENGTH(rfsdirpath)-1)
+              END
+              ELSE DO
+                IF RIGHT(rfsdirpath,1) <> '\' THEN DO
+                  rfsdir = rfsdirpath || '\'
+                END
+              END
+              tmppos = POS(':',dirin.j) + 1
+              target = SUBSTR(dirin.j,tmppos,LENGTH(rfsdir))
+              IF rfsdir = target THEN DO
+                CALL print_directory_line
+              END
+            END
+          END
+        END
+        lastreturncode = 0
+      END
+    /* ************************************************************** */
+    /* **** END DIRECTORY Processing ******************************** */
+    /* ************************************************************** */
+    END
+    WHEN keyword = 'RESTOREFILE' THEN DO
+    /* ************************************************************** */
+    /* **** RESTOREFILE Processing ********************************** */
+    /* ************************************************************** */
+      IF lastreturncode > 0 THEN DO
+        SAY ' '
+        SAY ' NON-ZERO RETURN CODE ENCOUNTERED. NO FURTHER PROCESSING.'
+        LEAVE i
+      END
+      rfsrestsource = key_value
+      rfsresttarget = key_value
+      rfsrestcont = operands
+      IF rfsrestcont = '-' THEN DO
+        i = i + 1
+        PARSE VAR SYSIN.i nkeyword nkey_value noperands
+        nkeyword = STRIP(nkeyword,'B')
+        nkey_value = STRIP(nkey_value,'B')
+        noperands = STRIP(noperands,'B')
+        rfsresttarget = nkey_value
+        i = i - 1
+      END
+      IF STRIP(rfsrestcont) = '-' THEN DO
+        SAY ' '
+        SAY ' RESTOREFILE -> 'rfsrestsource
+        SAY '          TO -> 'rfsresttarget
+      END
+      ELSE DO
+        SAY ' '
+        SAY ' RESTOREFILE -> 'rfsresttarget
+      END
+      CALL check_exist rfsresttarget 'FILE'
+      IF RESULT > 2 THEN DO
+        /* Error returned from check_exist call */
+        msg = 'RFSTL18E VSAMIO ERROR (RC='vsamrc')'
+        msg = msg' DURING CHECK_EXIST CALL PROCESS.'
+        SAY msg
+        SAY '  RESTOREFILE FAILED, RC='RESULT
+        lastreturncode = RESULT
+        CALL SENDMSG msg,'SYS'
+      END
+      ELSE DO
+        IF RESULT = 0 THEN DO
+          IF rfsreplace = 'Y' THEN DO
+          /* Delete existing file before restore */
+          SAY '  REPLACING EXISTING TARGET FILE ->'rfsresttarget
+          CALL delete_file rfsresttarget
+          IF RESULT = 0 THEN DO
+            /* Success, now process actual restore */
+            CALL restore_file rfsrestsource rfsresttarget
+            IF RESULT = 0 THEN DO
+              SAY '  RESTOREFILE COMPLETE'
+              lastreturncode = 0
+            END
+            ELSE DO
+              SELECT
+                WHEN RESULT = 2 THEN DO
+                  msg = 'RFSTL22E RFSDIR RECORDS NOT FOUND'
+                  msg = msg' ON SAM INPUT FILE.'
+                  SAY msg
+                  SAY '  RESTOREFILE FAILED, RC='RESULT
+                  lastreturncode = RESULT
+                  CALL SENDMSG msg,'SYS'
+                END
+                WHEN RESULT = 3 THEN DO
+                  msg = 'RFSTL23E RFSPOOL RECORDS NOT FOUND'
+                  msg = msg' ON SAM INPUT FILE.'
+                  SAY msg
+                  SAY '  RESTOREFILE FAILED, RC='RESULT
+                  lastreturncode = RESULT
+                  CALL SENDMSG msg,'SYS'
+                END
+                WHEN RESULT = 4 THEN DO
+                  msg = 'RFSTL24E SORT OF RFSPOOL RECORDS'
+                  msg = msg' FAILED. SORTSTEM RC='sortrc'.'
+                  SAY msg
+                  SAY '  RESTOREFILE FAILED, RC='RESULT
+                  lastreturncode = RESULT
+                  CALL SENDMSG msg,'SYS'
+                END
+                WHEN RESULT = 5 THEN DO
+                  msg = 'RFSTL25E EXECIO READING SAM FILE 'samfileid
+                  msg = msg'. EXECIO RC='samrc'.'
+                  SAY msg
+                  SAY '  RESTOREFILE FAILED, RC='RESULT
+                  lastreturncode = RESULT
+                  CALL SENDMSG msg,'SYS'
+                END
+                WHEN RESULT = 8 THEN DO
+                  msg = 'RFSTL26E VSAMIO WRITE OF RFSDIR RECORD'
+                  msg = msg' FAILED. VSAMIO RC='vsamrc'.'
+                  SAY msg
+                  SAY '  RESTOREFILE FAILED, RC='RESULT
+                  lastreturncode = RESULT
+                  CALL SENDMSG msg,'SYS'
+                END
+                WHEN RESULT = 9 THEN DO
+                  msg = 'RFSTL27E EXECIO ERROR READING SAM FILE DIRIN.'
+                  msg = msg' EXECIO RC='samrc'.'
+                  SAY msg
+                  SAY '  RESTOREFILE FAILED, RC='RESULT
+                  lastreturncode = RESULT
+                  CALL SENDMSG msg,'SYS'
+                END
+                WHEN RESULT = 10 THEN DO
+                  msg = 'RFSTL28E EXECIO ERROR READING SAM FILE DIRIN'
+                  msg = msg' DURING GETPOOLNAME. EXECIO RC='samrc'.'
+                  SAY msg
+                  SAY '  RESTOREFILE FAILED, RC='RESULT
+                  lastreturncode = RESULT
+                  CALL SENDMSG msg,'SYS'
+                END
+                WHEN RESULT = 11 THEN DO
+                  msg = 'RFSTL29E VSAMIO ERROR READING RFSDIR FILE '
+                  msg = msg' DURING GETPOOLNAME. VSAMIO RC='vsamrc'.'
+                  SAY msg
+                  SAY '  RESTOREFILE FAILED, RC='RESULT
+                  lastreturncode = RESULT
+                  CALL SENDMSG msg,'SYS'
+                END
+                WHEN RESULT = 16 THEN DO
+                  msg = 'RFSTL30E VSAMIO FAILURE WRITING DATA RECORDS'
+                  msg = msg' TO TARGET RFSPOL FILE. VSAMIO RC='vsamrc'.'
+                  SAY msg
+                  SAY '  RESTOREFILE FAILED, RC='RESULT
+                  lastreturncode = RESULT
+                  CALL SENDMSG msg,'SYS'
+                END
+                OTHERWISE
+              END
+            END
+          END
+          ELSE DO
+            /* Error, delete of existing file failed */
+            msg = 'RFSTL32E VSAMIO DELETE ERROR (RC='vsamrc')'
+            msg = msg' ON RFSDIR FILE DURING RESTOREFILE.'
+            SAY msg
+            SAY '  RESTOREFILE FAILED, RC='RESULT
+            lastreturncode = RESULT
+            CALL SENDMSG msg,'SYS'
+          END
+          END
+          ELSE DO
+            msg = '  TARGET FILE EXISTS AND "REPLACE YES" '
+            msg = msg'NOT SPECIFIED.  FILE SKIPPED.'
+            SAY msg
+          END
+        END
+        ELSE DO
+          SELECT
+            WHEN RESULT = 2 THEN DO
+              /* Now check if target folder exists */
+              CALL get_dir_portion rfsresttarget
+              rfsfolder = RESULT
+              CALL check_exist rfsfolder 'DIR'
+              IF RESULT = 0 THEN DO
+                /* Perform restore */
+                CALL restore_file rfsrestsource rfsresttarget
+                IF RESULT = 0 THEN DO
+                  SAY '  RESTOREFILE COMPLETE'
+                END
+                ELSE DO
+                  SELECT
+                    WHEN RESULT = 2 THEN DO
+                      msg = 'RFSTL22E RFSDIR RECORDS NOT FOUND'
+                      msg = msg' ON SAM INPUT FILE.'
+                      SAY msg
+                      SAY '  RESTOREFILE FAILED, RC='RESULT
+                      lastreturncode = RESULT
+                      CALL SENDMSG msg,'SYS'
+                    END
+                    WHEN RESULT = 3 THEN DO
+                      msg = 'RFSTL23E RFSPOOL RECORDS NOT FOUND'
+                      msg = msg' ON SAM INPUT FILE.'
+                      SAY msg
+                      SAY '  RESTOREFILE FAILED, RC='RESULT
+                      lastreturncode = RESULT
+                      CALL SENDMSG msg,'SYS'
+                    END
+                    WHEN RESULT = 4 THEN DO
+                      msg = 'RFSTL24E SORT OF RFSPOOL RECORDS'
+                      msg = msg' FAILED. SORTSTEM RC='sortrc'.'
+                      SAY msg
+                      SAY '  RESTOREFILE FAILED, RC='RESULT
+                      lastreturncode = RESULT
+                      CALL SENDMSG msg,'SYS'
+                    END
+                    WHEN RESULT = 5 THEN DO
+                      msg = 'RFSTL25E EXECIO READING SAM FILE '
+                      msg = msg || samfileid'. EXECIO RC='samrc'.'
+                      SAY msg
+                      SAY '  RESTOREFILE FAILED, RC='RESULT
+                      lastreturncode = RESULT
+                      CALL SENDMSG msg,'SYS'
+                    END
+                    WHEN RESULT = 8 THEN DO
+                      msg = 'RFSTL26E VSAMIO WRITE OF RFSDIR RECORD'
+                      msg = msg' FAILED. VSAMIO RC='vsamrc'.'
+                      SAY msg
+                      SAY '  RESTOREFILE FAILED, RC='RESULT
+                      lastreturncode = RESULT
+                      CALL SENDMSG msg,'SYS'
+                    END
+                    WHEN RESULT = 9 THEN DO
+                      msg = 'RFSTL27E EXECIO ERROR READING SAM FILE'
+                      msg = msg' DIRIN. EXECIO RC='samrc'.'
+                      SAY msg
+                      SAY '  RESTOREFILE FAILED, RC='RESULT
+                      lastreturncode = RESULT
+                      CALL SENDMSG msg,'SYS'
+                    END
+                    WHEN RESULT = 10 THEN DO
+                      msg = 'RFSTL28E EXECIO ERROR READING SAM'
+                      msg = msg' FILE DIRIN DURING GETPOOLNAME.'
+                      msg = msg' EXECIO RC='samrc'.'
+                      SAY msg
+                      SAY '  RESTOREFILE FAILED, RC='RESULT
+                      lastreturncode = RESULT
+                      CALL SENDMSG msg,'SYS'
+                    END
+                    WHEN RESULT = 11 THEN DO
+                      msg = 'RFSTL29E VSAMIO ERROR READING RFSDIR FILE '
+                      msg = msg'DURING GETPOOLNAME. VSAMIO RC='vsamrc'.'
+                      SAY msg
+                      SAY '  RESTOREFILE FAILED, RC='RESULT
+                      lastreturncode = RESULT
+                      CALL SENDMSG msg,'SYS'
+                    END
+                    WHEN RESULT = 16 THEN DO
+                      msg = 'RFSTL30E VSAMIO FAILURE WRITING DATA'
+                      msg = msg' RECORD TO TARGET RFSPOL FILE.'
+                      msg = msg' VSAMIO RC='vsamrc'.'
+                      SAY msg
+                      SAY '  RESTOREFILE FAILED, RC='RESULT
+                      lastreturncode = RESULT
+                      CALL SENDMSG msg,'SYS'
+                    END
+                    OTHERWISE
+                  END
+                END
+              END
+              ELSE DO
+                /* Target dir doesn't exist */
+                msg = 'RFSTL21E TARGET DIR DOES NOT EXIST.'
+                SAY msg
+                SAY '  RESTOREFILE FAILED, RC='RESULT
+                lastreturncode = RESULT
+                CALL SENDMSG msg,'SYS'
+              END
+            END
+            WHEN RESULT = 8 THEN DO
+              msg = 'RFSTL13E VSAMIO ERROR (RC='vsamrc')'
+              msg = msg' READING RFSDIR FILE DURING DELETEFILE.'
+              SAY msg
+              SAY '  RESTOREFILE FAILED, RC='RESULT
+              lastreturncode = RESULT
+              CALL SENDMSG msg,'SYS'
+            END
+            WHEN RESULT = 9 THEN DO
+              msg = 'RFSTL14E VSAMIO DELETE ERROR (RC='vsamrc')'
+              msg = msg' ON RFSDIR FILE DURING DELETEFILE.'
+              SAY msg
+              SAY '  RESTOREFILE FAILED, RC='RESULT
+              lastreturncode = RESULT
+              CALL SENDMSG msg,'SYS'
+            END
+            WHEN RESULT = 10 THEN DO
+              msg = 'RFSTL15E VSAMIO READ ERROR (RC='vsamrc')'
+              msg = msg' DURING DELETEFILE.'
+              SAY msg
+              SAY '  RESTOREFILE FAILED, RC='RESULT
+              lastreturncode = RESULT
+              CALL SENDMSG msg,'SYS'
+            END
+            WHEN RESULT = 11 THEN DO
+              msg = 'RFSTL16E VSAMIO DELETE ERROR (RC='vsamrc')'
+              msg = msg' ON RFSPOLx FILE DURING DELETEFILE.'
+              SAY msg
+              SAY '  RESTOREFILE FAILED, RC='RESULT
+              lastreturncode = RESULT
+              CALL SENDMSG msg,'SYS'
+            END
+            OTHERWISE
+              SAY '  RESTOREFILE FAILED, RC='RESULT
+              lastreturncode = RESULT
+          END
+        END
+      END
+    /* ************************************************************** */
+    /* **** END RESTOREFILE Processing ****************************** */
+    /* ************************************************************** */
+    END
+    WHEN keyword = 'RESTOREDIR' THEN DO
+    /* ************************************************************** */
+    /* **** RESTOREDIR Processing *********************************** */
+    /* ************************************************************** */
+      IF lastreturncode > 0 THEN DO
+        SAY ' '
+        SAY ' NON-ZERO RETURN CODE ENCOUNTERED. NO FURTHER PROCESSING.'
+        LEAVE i
+      END
+      rdrc = 0
+      rfsrestsource = key_value
+      rfsresttarget = key_value
+      rfsrestcont = operands
+      IF rfsrestcont = '-' THEN DO
+        i = i + 1
+        PARSE VAR SYSIN.i nkeyword nkey_value noperands
+        nkeyword = STRIP(nkeyword,'B')
+        nkey_value = STRIP(nkey_value,'B')
+        noperands = STRIP(noperands,'B')
+        rfsresttarget = nkey_value
+        i = i - 1
+      END
+      IF STRIP(rfsrestcont) = '-' THEN DO
+        SAY ' '
+        SAY ' RESTOREDIR -> 'rfsrestsource
+        SAY '         TO -> 'rfsresttarget
+      END
+      ELSE DO
+        SAY ' '
+        SAY ' RESTOREDIR -> 'rfsresttarget
+      END
+      CALL check_exist rfsresttarget 'DIR'
+      IF RESULT <> 0 THEN DO
+        /* Target folder does not exist */
+        msg = 'RFSTL21E TARGET DIR DOES NOT EXIST.'
+        SAY msg
+        rdrc = RESULT
+      END
+      ELSE DO
+        CALL build_filelists rfsrestsource rfsresttarget
+        IF RESULT = 0 THEN DO
+          /* Process returned filelist and restore each file */
+          DO q = 1 TO rfssrclist.0
+            /* First, check if targetfile exists */
+            CALL check_exist rfstgtlist.q 'FILE'
+            IF RESULT > 2 THEN DO
+              /* Error returned from check_exist call */
+              msg = 'RFSTL18E VSAMIO ERROR (RC='vsamrc')'
+              msg = msg' DURING CHECK_EXIST CALL PROCESS.'
+              SAY msg
+              rdrc = RESULT
+              LEAVE q
+            END
+            ELSE DO
+              IF RESULT = 0 THEN DO
+                IF rfsreplace = 'Y' THEN DO
+                /* Delete existing file before restore */
+                SAY '  REPLACING EXISTING TARGET FILE ->'rfstgtlist.q
+                CALL delete_file rfstgtlist.q
+                IF RESULT = 0 THEN DO
+                  /* Success, now process actual restore */
+                  CALL restore_file rfssrclist.q rfstgtlist.q
+                  IF RESULT = 0 THEN DO
+                    /* File successfully restored */
+                  END
+                  ELSE DO
+                    SELECT
+                      WHEN RESULT = 2 THEN DO
+                        msg = 'RFSTL22E RFSDIR RECORDS NOT FOUND'
+                        msg = msg' ON SAM INPUT FILE.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 3 THEN DO
+                        msg = 'RFSTL23E RFSPOOL RECORDS NOT FOUND'
+                        msg = msg' ON SAM INPUT FILE.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 4 THEN DO
+                        msg = 'RFSTL24E SORT OF RFSPOOL RECORDS'
+                        msg = msg' FAILED. SORTSTEM RC='sortrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 5 THEN DO
+                        msg = 'RFSTL25E EXECIO READING'
+                        msg = msg' SAM FILE 'samfileid
+                        msg = msg'. EXECIO RC='samrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 8 THEN DO
+                        msg = 'RFSTL26E VSAMIO WRITE OF RFSDIR RECORD'
+                        msg = msg' FAILED. VSAMIO RC='vsamrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 9 THEN DO
+                        msg = 'RFSTL27E EXECIO ERROR'
+                        msg = msg' READING SAM FILE DIRIN.'
+                        msg = msg' EXECIO RC='samrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 4 THEN DO
+                        msg = 'RFSTL24E SORT OF RFSPOOL RECORDS'
+                        msg = msg' FAILED. SORTSTEM RC='sortrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 5 THEN DO
+                        msg = 'RFSTL25E EXECIO READING'
+                        msg = msg' SAM FILE 'samfileid
+                        msg = msg'. EXECIO RC='samrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 8 THEN DO
+                        msg = 'RFSTL26E VSAMIO WRITE OF RFSDIR RECORD'
+                        msg = msg' FAILED. VSAMIO RC='vsamrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 9 THEN DO
+                        msg = 'RFSTL27E EXECIO ERROR'
+                        msg = msg' READING SAM FILE DIRIN.'
+                        msg = msg' EXECIO RC='samrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 10 THEN DO
+                        msg = 'RFSTL28E EXECIO ERROR'
+                        msg = msg' READING SAM FILE DIRIN'
+                        msg = msg' DURING GETPOOLNAME.'
+                        msg = msg' EXECIO RC='samrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 11 THEN DO
+                        msg = 'RFSTL29E VSAMIO ERROR'
+                        msg = msg' READING RFSDIR FILE '
+                        msg = msg' DURING GETPOOLNAME.'
+                        msg = msg' VSAMIO RC='vsamrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 16 THEN DO
+                        msg = 'RFSTL30E VSAMIO FAILURE'
+                        msg = msg' WRITING DATA RECORDS'
+                        msg = msg' TO TARGET RFSPOL FILE.'
+                        msg = msg' VSAMIO RC='vsamrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      OTHERWISE
+                    END
+                  END
+                END
+                ELSE DO
+                  /* Error, delete of existing file failed */
+                  msg = 'RFSTL33E VSAMIO DELETE ERROR (RC='vsamrc')'
+                  msg = msg' ON RFSDIR FILE DURING RESTOREDIR.'
+                  SAY msg
+                  rdrc = RESULT
+                  LEAVE q
+                END
+                END
+                ELSE DO
+                  SAY '  RESTORING 'rfssrclist.q
+                  SAY '         TO 'rfstgtlist.q
+                  msg = '  TARGET FILE EXISTS AND "REPLACE YES" '
+                  msg = msg'NOT SPECIFIED.  FILE SKIPPED.'
+                  SAY msg
+                END
+              END
+              ELSE DO
+                IF RESULT = 2 THEN DO
+                  CALL restore_file rfssrclist.q rfstgtlist.q
+                  IF RESULT = 0 THEN DO
+                    /* File successfully restored */
+                  END
+                  ELSE DO
+                    SELECT
+                      WHEN RESULT = 2 THEN DO
+                        msg = 'RFSTL22E RFSDIR RECORDS NOT FOUND'
+                        msg = msg' ON SAM INPUT FILE.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 3 THEN DO
+                        msg = 'RFSTL23E RFSPOOL RECORDS NOT FOUND'
+                        msg = msg' ON SAM INPUT FILE.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 4 THEN DO
+                        msg = 'RFSTL24E SORT OF RFSPOOL RECORDS'
+                        msg = msg' FAILED. SORTSTEM RC='sortrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 5 THEN DO
+                        msg = 'RFSTL25E EXECIO READING'
+                        msg = msg' SAM FILE 'samfileid
+                        msg = msg'. EXECIO RC='samrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 8 THEN DO
+                        msg = 'RFSTL26E VSAMIO WRITE OF RFSDIR RECORD'
+                        msg = msg' FAILED. VSAMIO RC='vsamrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 9 THEN DO
+                        msg = 'RFSTL27E EXECIO ERROR'
+                        msg = msg' READING SAM FILE DIRIN.'
+                        msg = msg' EXECIO RC='samrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 4 THEN DO
+                        msg = 'RFSTL24E SORT OF RFSPOOL RECORDS'
+                        msg = msg' FAILED. SORTSTEM RC='sortrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 5 THEN DO
+                        msg = 'RFSTL25E EXECIO READING'
+                        msg = msg' SAM FILE 'samfileid
+                        msg = msg'. EXECIO RC='samrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 8 THEN DO
+                        msg = 'RFSTL26E VSAMIO WRITE OF RFSDIR RECORD'
+                        msg = msg' FAILED. VSAMIO RC='vsamrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 9 THEN DO
+                        msg = 'RFSTL27E EXECIO ERROR'
+                        msg = msg' READING SAM FILE DIRIN.'
+                        msg = msg' EXECIO RC='samrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 10 THEN DO
+                        msg = 'RFSTL28E EXECIO ERROR'
+                        msg = msg' READING SAM FILE DIRIN'
+                        msg = msg' DURING GETPOOLNAME.'
+                        msg = msg' EXECIO RC='samrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 11 THEN DO
+                        msg = 'RFSTL29E VSAMIO ERROR'
+                        msg = msg' READING RFSDIR FILE '
+                        msg = msg' DURING GETPOOLNAME.'
+                        msg = msg' VSAMIO RC='vsamrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      WHEN RESULT = 16 THEN DO
+                        msg = 'RFSTL30E VSAMIO FAILURE'
+                        msg = msg' WRITING DATA RECORDS'
+                        msg = msg' TO TARGET RFSPOL FILE.'
+                        msg = msg' VSAMIO RC='vsamrc'.'
+                        SAY msg
+                        rdrc = RESULT
+                        LEAVE q
+                      END
+                      OTHERWISE
+                    END
+                  END
+                END
+              END
+            END
+          END
+        END
+        ELSE DO
+          msg = 'RFSTL22E RFSDIR RECORDS NOT FOUND'
+          msg = msg' ON SAM INPUT FILE.'
+          SAY msg
+          rdrc = RESULT
+          LEAVE q
+        END
+      END
+      IF rdrc > 0 THEN DO
+        SAY '  RESTOREDIR FAILED, RC='rdrc
+        lastreturncode = rdrc
+        CALL SENDMSG msg,'SYS'
+      END
+      ELSE DO
+        msg = '  RESTOREDIR COMPLETE.'
+        SAY msg
+        lastreturncode = 0
+      END
+    /* ************************************************************** */
+    /* **** END RESTOREDIR Processing ******************************* */
+    /* ************************************************************** */
+    END
+    WHEN keyword = 'MAKEDIR' THEN DO
+    /* ************************************************************** */
+    /* *** MAKEDIR Processing *************************************** */
+    /* ************************************************************** */
+      IF lastreturncode > 0 THEN DO
+        SAY ' '
+        SAY ' NON-ZERO RETURN CODE ENCOUNTERED. NO FURTHER PROCESSING.'
+        LEAVE i
+      END
+      rfsmkdir = key_value
+      rfsmkdirtype = operands
+      SAY ' '
+      SAY ' MAKEDIR -> 'rfsmkdir rfsmkdirtype
+      CALL make_directory rfsmkdir rfsmkdirtype
+      IF RESULT = 0 THEN DO
+        SAY '  MAKEDIR COMPLETE, FULL RFS ID - 'poolname || rfsmkdir
+        lastreturncode = 0
+      END
+      ELSE DO
+        msg = 'RFSTL17E VSAMIO ERROR (RC='vsamrc')'
+        msg = msg' WRITING RFSDIR FILE DURING MAKEDIR.'
+        SAY msg
+        SAY '  MAKEDIR FAILED, RC='RESULT
+        lastreturncode = RESULT
+        CALL SENDMSG msg,'SYS'
+      END
+    /* ************************************************************** */
+    /* *** END MAKEDIR Processing *********************************** */
+    /* ************************************************************** */
+    END
+    WHEN keyword = 'DELETEDIR' THEN DO
+    /* ************************************************************** */
+    /* *** DELETEDIR Processing ************************************* */
+    /* ************************************************************** */
+      IF lastreturncode > 0 THEN DO
+        SAY ' '
+        SAY ' NON-ZERO RETURN CODE ENCOUNTERED. NO FURTHER PROCESSING.'
+        LEAVE i
+      END
+      rfsdeldir = key_value
+      SAY ' '
+      SAY ' DELETEDIR -> 'rfsdeldir
+      CALL delete_directory rfsdeldir
+      IF RESULT = 0 THEN DO
+        SAY '  DELETEDIR COMPLETE, FULL RFS ID - 'poolname || rfsdeldir
+        lastreturncode = 0
+      END
+      ELSE DO
+        SELECT
+          WHEN RESULT = 2 THEN DO
+            SAY '  SPECIFIED DIRECTORY NOT FOUND.'
+          END
+          WHEN RESULT = 8 THEN DO
+            msg = 'RFSTL10E VSAMIO ERROR (RC='vsamrc')'
+            msg = msg' READING RFSDIR FILE DURING DELETEDIR.'
+            SAY msg
+            SAY '  DELETEDIR FAILED, RC='RESULT
+            lastreturncode = RESULT
+            CALL SENDMSG msg,'SYS'
+          END
+          WHEN RESULT = 9 THEN DO
+            msg = 'RFSTL11E VSAMIO DELETE ERROR (RC='vsamrc')'
+            msg = msg' DURING DELETEDIR.'
+            SAY msg
+            SAY '  DELETEDIR FAILED, RC='RESULT
+            lastreturncode = RESULT
+            CALL SENDMSG msg,'SYS'
+          END
+          WHEN RESULT = 10 THEN DO
+            msg = 'RFSTL12E VSAMIO READ ERROR (RC='vsamrc')'
+            msg = msg' DURING DELETEDIR.'
+            SAY msg
+            SAY '  DELETEDIR FAILED, RC='RESULT
+            lastreturncode = RESULT
+            CALL SENDMSG msg,'SYS'
+          END
+          OTHERWISE
+            SAY '  DELETEDIR FAILED, RC='RESULT
+            lastreturncode = RESULT
+        END
+      END
+    /* ************************************************************** */
+    /* *** END DELETEDIR Processing ********************************* */
+    /* ************************************************************** */
+    END
+    WHEN keyword = 'DELETEFILE' THEN DO
+    /* ************************************************************** */
+    /* *** DELETEFILE Processing ************************************ */
+    /* ************************************************************** */
+      IF lastreturncode > 0 THEN DO
+        SAY ' '
+        SAY ' NON-ZERO RETURN CODE ENCOUNTERED. NO FURTHER PROCESSING.'
+        LEAVE i
+      END
+      rfsdelfile = key_value
+      SAY ' '
+      SAY ' DELETEFILE -> 'rfsdelfile
+      CALL delete_file rfsdelfile
+      IF RESULT = 0 THEN DO
+        SAY '  DELETEFILE COMPLETE, FULL RFS ID - 'poolname||rfsdelfile
+        lastreturncode = 0
+      END
+      ELSE DO
+        SELECT
+          WHEN RESULT = 2 THEN DO
+            SAY '  SPECIFIED FILE NOT FOUND.'
+          END
+          WHEN RESULT = 8 THEN DO
+            msg = 'RFSTL13E VSAMIO ERROR (RC='vsamrc')'
+            msg = msg' READING RFSDIR FILE DURING DELETEFILE.'
+            SAY msg
+            SAY '  DELETEFILE FAILED, RC='RESULT
+            lastreturncode = RESULT
+            CALL SENDMSG msg,'SYS'
+          END
+          WHEN RESULT = 9 THEN DO
+            msg = 'RFSTL14E VSAMIO DELETE ERROR (RC='vsamrc')'
+            msg = msg' ON RFSDIR FILE DURING DELETEFILE.'
+            SAY msg
+            SAY '  DELETEFILE FAILED, RC='RESULT
+            lastreturncode = RESULT
+            CALL SENDMSG msg,'SYS'
+          END
+          WHEN RESULT = 10 THEN DO
+            msg = 'RFSTL15E VSAMIO READ ERROR (RC='vsamrc')'
+            msg = msg' DURING DELETEFILE.'
+            SAY msg
+            SAY '  DELETEFILE FAILED, RC='RESULT
+            lastreturncode = RESULT
+            CALL SENDMSG msg,'SYS'
+          END
+          WHEN RESULT = 11 THEN DO
+            msg = 'RFSTL16E VSAMIO DELETE ERROR (RC='vsamrc')'
+            msg = msg' ON RFSPOLx FILE DURING DELETEFILE.'
+            SAY msg
+            SAY '  DELETEFILE FAILED, RC='RESULT
+            lastreturncode = RESULT
+            CALL SENDMSG msg,'SYS'
+          END
+          OTHERWISE
+            SAY '  DELETEFILE FAILED, RC='RESULT
+            lastreturncode = RESULT
+        END
+      END
+    /* ************************************************************** */
+    /* *** END DELETEFILE Processing ******************************** */
+    /* ************************************************************** */
+    END
+    OTHERWISE
+  END
+  IF lastreturncode > maxreturncode THEN DO
+    maxreturncode = lastreturncode
+  END
+END
+
+SAY ' '
+msg = 'RFSTL99I PROCESSING COMPLETE.'
+SAY msg
+SAY ' '
+CALL SENDMSG msg,'SYS'
+RETURN maxreturncode
+/*********************************************************************/
+/*** End of main program, subroutines follow. ************************/
+/*********************************************************************/
+
+/*********************************************************************/
+/* print_directory_line                                              */
+/*********************************************************************/
+print_directory_line:
+rfsfileid = STRIP(SUBSTR(dirin.j,3,248),'T')
+IF LENGTH(rfsfileid) <= 125 THEN DO
+  SAY '  'rfsfileid
+END
+ELSE DO
+  SAY '  ' || LEFT(rfsfileid,125) || '+'
+  SAY '  ' || SUBSTR(rfsfileid,126,123)
+END
+IF rfsdirmode = 'FULL' THEN DO
+  msg = '      TYPE:' || SUBSTR(dirin.j,251,1)
+  msg = msg'   DATE:' || SUBSTR(dirin.j,260,10)
+  msg = msg'   TIME:' || SUBSTR(dirin.j,270,8)
+  msg = msg'   USER:' || SUBSTR(dirin.j,278,8)
+  msg = msg'   SECURITY:' || SUBSTR(dirin.j,286,1)
+  SAY msg
+  IF SUBSTR(dirin.j,251,1) = 'F' THEN DO
+    msg = '      RECORDS:' || C2D(SUBSTR(dirin.j,252,4))
+    msg = msg'   SIZE:' || C2D(SUBSTR(dirin.j,256,4)) || 'B'
+    SAY msg
+  END
+END
+RETURN 0
+/*********************************************************************/
+/* make_directory                                                    */
+/*********************************************************************/
+make_directory:
+ARG makedir dirtype
+'VSAMIO READ FILENAME 'rfsdirout' RECORDS 2 STEM dirin. ' ,
+'OPEN_READ CICS_APPLID 'cicsregion' CLOSE'
+IF rc > 0 THEN DO
+  /* VSAMIO ERROR */
+  vsamrc = rc
+  RETURN 8
+END
+ELSE DO
+  tdirin = STRIP(SUBSTR(dirin.2,3,248))
+  PARSE VAR tdirin poolname ':' pathinfo
+  poolname = poolname || ':'
+  tempdata = TRANSLATE(makedir,' ','\')
+  dirlevels = WORDS(tempdata)
+  mdkey = D2C(dirlevels,2)
+  mdkey = mdkey || poolname || LEFT(makedir,242,' ') || 'D'
+  mdlow8 = D2C(0,8)
+  tdate = DATE('S')
+  mddate = LEFT(tdate,4)'/'SUBSTR(tdate,5,2)'/'SUBSTR(tdate,7,2)
+  mdtime = TIME('N')
+  mduser = LEFT(USERID(),8,' ')
+  SELECT
+    WHEN dirtype = 'PRIVATE' THEN DO
+      mdtype = 'P'
+    END
+    WHEN dirtype = 'SECURED' THEN DO
+      mdtype = 'S'
+    END
+    WHEN dirtype = 'PUBLICR' THEN DO
+      mdtype = 'R'
+    END
+    WHEN dirtype = 'PUBLICW' THEN DO
+      mdtype = 'W'
+    END
+    OTHERWISE
+    mdtype = 'S'
+  END
+  mdpool = LEFT(' ',8,' ')
+  mdrecords.1 = mdkey || mdlow8 || mddate || mdtime || mduser
+  mdrecords.1 = mdrecords.1 || mdtype || mdpool
+  mdrecords.1 = LEFT(mdrecords.1,314,' ')
+  mdrecords.0 = 1
+  "VSAMIO WRITE FILENAME "rfsdirout" RECORDS 1 STEM mdrecords. " ,
+  "OPEN_WRITE CICS_APPLID "cicsregion" CLOSE"
+  IF rc = 0 THEN DO
+    RETURN 0
+  END
+  ELSE DO
+    vsamrc = rc
+    RETURN 8
+  END
+END
+RETURN 0
+/*********************************************************************/
+/* delete_directory                                                  */
+/*********************************************************************/
+delete_directory:
+ARG deldir
+'VSAMIO READ FILENAME 'rfsdirout' RECORDS 2 STEM dirin. ' ,
+'OPEN_READ CICS_APPLID 'cicsregion' CLOSE'
+IF rc > 0 THEN DO
+  /* VSAMIO ERROR */
+  vsamrc = rc
+  RETURN 8
+END
+ELSE DO
+  tdirin = STRIP(SUBSTR(dirin.2,3,248))
+  PARSE VAR tdirin poolname ':' pathinfo
+  poolname = poolname || ':'
+  tempdata = TRANSLATE(deldir,' ','\')
+  dirlevels = WORDS(tempdata)
+  vsamkey = D2C(dirlevels,2)
+  vsamkey = vsamkey || poolname || LEFT(deldir,242,' ') || 'D'
+  savekey = vsamkey
+  "VSAMIO READ FILENAME "rfsdirout" RECORDS 1 STEM dirin. " ,
+  "OPEN_READ CLOSE CICS_APPLID "cicsregion" STARTKEY '"vsamkey"'"
+  IF rc = 0 THEN DO
+    IF LEFT(dirin.1,251) = savekey THEN DO
+      "VSAMIO DELETE FILENAME "rfsdirout" RECORDS 1 " ,
+      "OPEN_UPDATE CLOSE CICS_APPLID "cicsregion" STARTKEY '"vsamkey"'"
+      IF rc > 0 THEN DO
+        /* VSAMIO DELETE ERROR */
+        RETURN 9
+      END
+      ELSE DO
+        /* SUCCESS */
+        RETURN 0
+      END
+    END
+    ELSE DO
+      /* SPECIFIED DIRECTORY NOT FOUND */
+      RETURN 2
+    END
+  END
+  ELSE DO
+    /* VSAMIO READ ERROR */
+    vsamrc = rc
+    RETURN 10
+  END
+END
+RETURN 0
+/*********************************************************************/
+/* check_exist                                                       */
+/*********************************************************************/
+check_exist:
+ARG chkfile chktype
+'VSAMIO READ FILENAME 'rfsdirout' RECORDS 2 STEM dirin. ' ,
+'OPEN_READ CICS_APPLID 'cicsregion' CLOSE'
+IF rc > 0 THEN DO
+  /* VSAMIO ERROR */
+  vsamrc = rc
+  RETURN 8
+END
+ELSE DO
+  tdirin = STRIP(SUBSTR(dirin.2,3,248))
+  PARSE VAR tdirin poolname ':' pathinfo
+  poolname = poolname || ':'
+  tempdata = TRANSLATE(chkfile,' ','\')
+  dirlevels = WORDS(tempdata)
+  vsamkey = D2C(dirlevels,2)
+  vsamkey = vsamkey || poolname || LEFT(chkfile,242,' ')
+  IF chktype = 'FILE' THEN DO
+    vsamkey = vsamkey || 'F'
+  END
+  ELSE DO
+    vsamkey = vsamkey || 'D'
+  END
+  savekey = vsamkey
+  "VSAMIO READ FILENAME "rfsdirout" RECORDS 1 STEM dirin. " ,
+  "OPEN_READ CLOSE CICS_APPLID "cicsregion" STARTKEY '"vsamkey"'"
+  IF rc = 0 THEN DO
+    IF LEFT(dirin.1,251) = savekey THEN DO
+      /* SPECIFIED FILE FOUND */
+      RETURN 0
+    END
+    ELSE DO
+      /* SPECIFIED FILE NOT FOUND */
+      RETURN 2
+    END
+  END
+  ELSE DO
+    /* VSAMIO READ ERROR */
+    vsamrc = rc
+    IF vsamrc = 3 THEN DO
+      /* VSAMIO Read past highest key is not an error in this case */
+      /* Instead thi should simply be treated as a not found. */
+      RETURN 2
+    END
+    ELSE DO
+      /* All other errors should generate a failure */
+      RETURN 8
+    END
+  END
+END
+RETURN 8
+/*********************************************************************/
+/* delete_file                                                       */
+/*********************************************************************/
+delete_file:
+ARG delfile
+'VSAMIO READ FILENAME 'rfsdirout' RECORDS 2 STEM dirin. ' ,
+'OPEN_READ CICS_APPLID 'cicsregion' CLOSE'
+IF rc > 0 THEN DO
+  /* VSAMIO ERROR */
+  vsamrc = rc
+  RETURN 8
+END
+ELSE DO
+  tdirin = STRIP(SUBSTR(dirin.2,3,248))
+  PARSE VAR tdirin poolname ':' pathinfo
+  poolname = poolname || ':'
+  tempdata = TRANSLATE(delfile,' ','\')
+  dirlevels = WORDS(tempdata)
+  vsamkey = D2C(dirlevels,2)
+  vsamkey = vsamkey || poolname || LEFT(delfile,242,' ') || 'F'
+  savekey = vsamkey
+  "VSAMIO READ FILENAME "rfsdirout" RECORDS 1 STEM dirin. " ,
+  "OPEN_READ CLOSE CICS_APPLID "cicsregion" STARTKEY '"vsamkey"'"
+  IF rc = 0 THEN DO
+    IF LEFT(dirin.1,251) = savekey THEN DO
+      "VSAMIO DELETE FILENAME "rfsdirout" RECORDS 1 " ,
+      "OPEN_UPDATE CLOSE CICS_APPLID "cicsregion" STARTKEY '"vsamkey"'"
+      IF rc > 0 THEN DO
+        /* VSAMIO DELETE ERROR */
+        vsamrc = rc
+        RETURN 9
+      END
+      ELSE DO
+        /* Now delete RFS File data records from POOL file */
+        fullrfsfileid = poolname || delfile
+        CALL delete_data_records fullrfsfileid
+        IF RESULT > 0 THEN DO
+          RETURN 11
+        END
+        ELSE DO
+          /* SUCCESS */
+          RETURN 0
+        END
+      END
+    END
+    ELSE DO
+      /* SPECIFIED FILE NOT FOUND */
+      RETURN 2
+    END
+  END
+  ELSE DO
+    /* VSAMIO READ ERROR */
+    vsamrc = rc
+    RETURN 10
+  END
+END
+RETURN 0
+/*********************************************************************/
+/* delete_data_records                                               */
+/*********************************************************************/
+delete_data_records:
+ARG df
+recordnum = 1
+recordsdeleted = 'N'
+processing = 1
+DO UNTIL processing = 0
+  dfkey = LEFT(df,248,' ')
+  dfkey = dfkey || D2C(recordnum,4)
+  IF rfspolout1 <> '' THEN DO
+    dfsavekey = dfkey
+    "VSAMIO READ FILENAME "rfspolout1" RECORDS 1 STEM dfin. " ,
+    "OPEN_READ CLOSE CICS_APPLID "cicsregion" STARTKEY '"dfkey"'"
+    IF rc > 0 THEN DO
+      processing = 0
+    END
+    ELSE DO
+      IF LEFT(dfin.1,252) = dfsavekey THEN DO
+        "VSAMIO DELETE FILENAME "rfspolout1" RECORDS 1 " ,
+        "OPEN_UPDATE CLOSE CICS_APPLID "cicsregion" STARTKEY '"dfkey"'"
+        processing = 1
+        recordsdeleted = 'Y'
+      END
+      ELSE DO
+        processing = 0
+      END
+    END
+  END
+  IF rfspolout2 <> '' THEN DO
+    dfsavekey = dfkey
+    "VSAMIO READ FILENAME "rfspolout2" RECORDS 1 STEM dfin. " ,
+    "OPEN_READ CLOSE CICS_APPLID "cicsregion" STARTKEY '"dfkey"'"
+    IF rc > 0 THEN DO
+      processing = 0
+    END
+    ELSE DO
+      IF LEFT(dfin.1,252) = dfsavekey THEN DO
+        "VSAMIO DELETE FILENAME "rfspolout2" RECORDS 1 " ,
+        "OPEN_UPDATE CLOSE CICS_APPLID "cicsregion" STARTKEY '"dfkey"'"
+        processing = 1
+        recordsdeleted = 'Y'
+      END
+      ELSE DO
+        processing = 0
+      END
+    END
+  END
+  IF rfspolout3 <> '' THEN DO
+    dfsavekey = dfkey
+    "VSAMIO READ FILENAME "rfspolout3" RECORDS 1 STEM dfin. " ,
+    "OPEN_READ CLOSE CICS_APPLID "cicsregion" STARTKEY '"dfkey"'"
+    IF rc > 0 THEN DO
+      processing = 0
+    END
+    ELSE DO
+      IF LEFT(dfin.1,252) = dfsavekey THEN DO
+        "VSAMIO DELETE FILENAME "rfspolout3" RECORDS 1 " ,
+        "OPEN_UPDATE CLOSE CICS_APPLID "cicsregion" STARTKEY '"dfkey"'"
+        processing = 1
+        recordsdeleted = 'Y'
+      END
+      ELSE DO
+        processing = 0
+      END
+    END
+  END
+  IF rfspolout4 <> '' THEN DO
+    dfsavekey = dfkey
+    "VSAMIO READ FILENAME "rfspolout4" RECORDS 1 STEM dfin. " ,
+    "OPEN_READ CLOSE CICS_APPLID "cicsregion" STARTKEY '"dfkey"'"
+    IF rc > 0 THEN DO
+      processing = 0
+    END
+    ELSE DO
+      IF LEFT(dfin.1,252) = dfsavekey THEN DO
+        "VSAMIO DELETE FILENAME "rfspolout4" RECORDS 1 " ,
+        "OPEN_UPDATE CLOSE CICS_APPLID "cicsregion" STARTKEY '"dfkey"'"
+        processing = 1
+        recordsdeleted = 'Y'
+      END
+      ELSE DO
+        processing = 0
+      END
+    END
+  END
+  recordnum = recordnum + 1
+END
+IF recordsdeleted = 'Y' THEN DO
+  df_rc = 0
+END
+ELSE DO
+  df_rc = 8
+END
+RETURN df_rc
+/*********************************************************************/
+/* restore_file                                                      */
+/*********************************************************************/
+restore_file:
+ARG rstsrc rsttgt
+SAY '  RESTORING 'rstsrc
+SAY '         TO 'rsttgt
+/* Determine input rfsdir pool name */
+'EXECIO 2 DISKR DIRIN 1 (STEM dirin. BLKSIZE 25000 RECFORM VARBLK'
+IF rc > 0 THEN DO
+  /* EXECIO ERROR */
+  samrc = rc
+  RETURN 10
+END
+ELSE DO
+  tdirin = STRIP(SUBSTR(dirin.2,3,248))
+  PARSE VAR tdirin poolname ':' pathinfo
+  poolname = poolname || ':'
+END
+rstsrc = poolname || rstsrc
+
+/* Determine output rfsdir pool name */
+'VSAMIO READ FILENAME 'rfsdirout' RECORDS 2 STEM dirin. ' ,
+'OPEN_READ CICS_APPLID 'cicsregion' CLOSE'
+IF rc > 0 THEN DO
+  /* VSAMIO ERROR */
+  vsamrc = rc
+  RETURN 11
+END
+ELSE DO
+  tdirin = STRIP(SUBSTR(dirin.2,3,248))
+  PARSE VAR tdirin poolname ':' pathinfo
+  poolname = poolname || ':'
+END
+rsttgt = poolname || rsttgt
+
+/* Now retreive rfsdir record from SAM file */
+morerecords = 'Y'
+recnum = 1
+DO WHILE morerecords = 'Y'
+  'EXECIO 1 DISKR DIRIN 'recnum' (STEM dirin. ' ,
+  'BLKSIZE 25000 RECFORM VARBLK'
+  IF rc = 0 THEN DO
+    IF STRIP(SUBSTR(dirin.1,3,248)) = STRIP(rstsrc) THEN DO
+      rstdirrec = dirin.1
+      dirrecfnd = 'Y'
+      morerecords = 'N'
+    END
+    recnum = recnum + 1
+  END
+  ELSE DO
+    IF rc = 2 THEN DO
+      /* End-of-file */
+      morerecords = 'N'
+    END
+    ELSE DO
+      /* EXECIO Error */
+      samrc = rc
+      RETURN 9
+    END
+  END
+END
+IF dirrecfnd = 'Y' THEN DO
+  IF rstsrc = rsttgt THEN DO
+    SAY 'rstdirrec=' || LEFT(rstdirrec,100)
+    SAY 'LENGTH(rstdirec)=' || LENGTH(rstdirrec)
+  END
+  ELSE DO
+    /* Update rfsdir record with new rfsfileid */
+    PARSE VAR rsttgt poolname ':' pathinfo
+    poolname = poolname || ':'
+    tempdata = TRANSLATE(pathinfo,' ','\')
+    dirlevels = WORDS(tempdata)
+    dirlevels = D2C(dirlevels,2)
+    tmpkey = dirlevels || LEFT(rsttgt,248)
+    rstdirrec = tmpkey || RIGHT(rstdirrec,LENGTH(rstdirrec) - 250)
+  END
+  /* Now read the rfs pool file data records for this rfsfile */
+  recordnum = 0
+  polrecsfnd = 'N'
+
+  IF rfspolin1 <> '' THEN DO
+    processing = 1
+    recnum = 1
+    DO UNTIL processing = 0
+      'EXECIO 1 DISKR POLIN1 'recnum' (STEM polin1. ' ,
+      'BLKSIZE 25000 RECFORM VARBLK'
+      IF rc = 2 THEN DO
+        /* End-of-file */
+        processing = 0
+      END
+      ELSE DO
+        IF rc = 0 THEN DO
+          IF STRIP(LEFT(polin1.1,248)) = rstsrc THEN DO
+            /* Save the record found into stem variable */
+            recordnum = recordnum + 1
+            rfspolrecs.recordnum = polin1.1
+            processing = 1
+            polrecsfnd = 'Y'
+          END
+          recnum = recnum + 1
+        END
+        ELSE DO
+          /* EXECIO error */
+          samfileid = 'POLIN1'
+          samrc = rc
+          RETURN 5
+        END
+      END
+    END
+  END
+  IF rfspolin2 <> '' THEN DO
+    processing = 1
+    recnum = 1
+    DO UNTIL processing = 0
+      'EXECIO 1 DISKR POLIN2 'recnum' (STEM polin2. ' ,
+      'BLKSIZE 25000 RECFORM VARBLK'
+      IF rc = 2 THEN DO
+        /* End-of-file */
+        processing = 0
+      END
+      ELSE DO
+        IF rc = 0 THEN DO
+          IF STRIP(LEFT(polin2.1,248)) = rstsrc THEN DO
+            /* Save the record found into stem variable */
+            recordnum = recordnum + 1
+            rfspolrecs.recordnum = polin2.1
+            processing = 1
+            polrecsfnd = 'Y'
+          END
+          recnum = recnum + 1
+        END
+        ELSE DO
+          /* EXECIO error */
+          samfileid = 'POLIN2'
+          samrc = rc
+          RETURN 5
+        END
+      END
+    END
+  END
+  IF rfspolin3 <> '' THEN DO
+    processing = 1
+    recnum = 1
+    DO UNTIL processing = 0
+      'EXECIO 1 DISKR POLIN3 'recnum' (STEM polin3. ' ,
+      'BLKSIZE 25000 RECFORM VARBLK'
+      IF rc = 2 THEN DO
+        /* End-of-file */
+        processing = 0
+      END
+      ELSE DO
+        IF rc = 0 THEN DO
+          IF STRIP(LEFT(polin3.1,248)) = rstsrc THEN DO
+            /* Save the record found into stem variable */
+            recordnum = recordnum + 1
+            rfspolrecs.recordnum = polin3.1
+            processing = 1
+            polrecsfnd = 'Y'
+          END
+          recnum = recnum + 1
+        END
+        ELSE DO
+          /* EXECIO error */
+          samfileid = 'POLIN3'
+          samrc = rc
+          RETURN 5
+        END
+      END
+    END
+  END
+  IF rfspolin4 <> '' THEN DO
+    processing = 1
+    recnum = 1
+    DO UNTIL processing = 0
+      'EXECIO 1 DISKR POLIN4 'recnum' (STEM polin4. ' ,
+      'BLKSIZE 25000 RECFORM VARBLK'
+      IF rc = 2 THEN DO
+        /* End-of-file */
+        processing = 0
+      END
+      ELSE DO
+        IF rc = 0 THEN DO
+          IF STRIP(LEFT(polin4.1,248)) = rstsrc THEN DO
+            /* Save the record found into stem variable */
+            recordnum = recordnum + 1
+            rfspolrecs.recordnum = polin4.1
+            processing = 1
+            polrecsfnd = 'Y'
+          END
+          recnum = recnum + 1
+        END
+        ELSE DO
+          /* EXECIO error */
+          samfileid = 'POLIN4'
+          samrc = rc
+          RETURN 5
+        END
+      END
+    END
+  END
+
+  IF polrecsfnd = 'Y' THEN DO
+    rfspolrecs.0 = recordnum
+    /* Now sort the collected records into rec sequence */
+    IF rfspolrecs.0 > 1 THEN DO
+      fc = SORTSTEM('rfspolrecs.','ZONE 248 252','ASCENDING')
+      IF fc > 0 THEN DO
+        /* Indicate the SORTSTEM failed */
+        sortrc = fc
+        RETURN 4
+      END
+    END
+    /* Now process these records in reverse */
+    lastpolfilename = ' '
+    DO recs = rfspolrecs.0 TO 1 BY -1
+      first252 = LEFT(rfspolrecs.recs,252)
+      remainlen = LENGTH(rfspolrecs.recs) - 260
+      lastpolfilename = LEFT(lastpolfilename,8,' ')
+      remaining = SUBSTR(rfspolrecs.recs,261,remainlen)
+      rfspolrecs.recs = first252 || lastpolfilename || remaining
+      IF rstsrc = rsttgt THEN DO
+        CALL write_data_record rfspolrecs.recs
+        IF RESULT <> 'ERROR' THEN DO
+          lastpolfilename = RESULT
+          SAY 'lastpolfilename='lastpolfilename
+        END
+        ELSE DO
+          /* At this point records could be left on file after */
+          /* failed restore.                                   */
+          RETURN 16
+        END
+      END
+      ELSE DO
+        /* Update record with new rfsfileid */
+        first248 = LEFT(rsttgt,248,' ')
+        remainlen = LENGTH(rfspolrecs.recs) - 248
+        remaining = SUBSTR(rfspolrecs.recs,249,remainlen)
+        rfspolrecs.recs = first248 || remaining
+        CALL write_data_record rfspolrecs.recs
+        IF RESULT <> 'ERROR' THEN DO
+          lastpolfilename = RESULT
+        END
+        ELSE DO
+          /* At this point records could be left on file after */
+          /* failed restore.                                   */
+          RETURN 16
+        END
+      END
+    END
+    /* Now update the rfsdir record with lastpolfilename */
+    first286 = LEFT(rstdirrec,286)
+    remainlen = LENGTH(rstdirrec) - 294
+    lastpolfilename = LEFT(lastpolfilename,8,' ')
+    remaining = SUBSTR(rstdirrec,295,remainlen)
+    rfsdirrec = first286 || lastpolfilename || remaining
+    trfsdirrec.1 = rfsdirrec
+    trfsdirrec.0 = 1
+    "VSAMIO WRITE FILENAME "rfsdirout" RECORDS 1 STEM trfsdirrec. " ,
+    "OPEN_WRITE CICS_APPLID "cicsregion" CLOSE"
+    IF rc = 0 THEN DO
+      RETURN 0
+    END
+    ELSE DO
+      vsamrc = rc
+      RETURN 8
+    END
+  END
+  ELSE DO
+    /* requested rfspol records not found on SAM input files */
+    RETURN 3
+  END
+END
+ELSE DO
+  /* requested rfsdir record not found on SAM input file */
+  RETURN 2
+END
+RETURN 0
+/*********************************************************************/
+/* get_dir_portion                                                   */
+/*********************************************************************/
+get_dir_portion:
+ARG rfsflname
+tempdata = TRANSLATE(rfsflname,' ','\')
+dirwordcnt = WORDS(tempdata) - 1
+dirwords = SUBWORD(tempdata,1,dirwordcnt)
+dirportion = TRANSLATE(dirwords,'\',' ')
+rfsdirportion = '\'dirportion
+RETURN rfsdirportion
+/*********************************************************************/
+/* get_file_portion                                                  */
+/*********************************************************************/
+get_file_portion:
+ARG rfsflname
+tempdata = TRANSLATE(rfsflname,' ','\')
+lastword = WORDS(tempdata)
+fileword = SUBWORD(tempdata,lastword,1)
+rfsfileportion = fileword
+RETURN rfsfileportion
+/*********************************************************************/
+/* write_data_record                                                 */
+/*********************************************************************/
+write_data_record:
+PARSE ARG datarec
+dr.1 = datarec
+dr.0 = 1
+IF rfspolout1 <> '' THEN DO
+  "VSAMIO WRITE FILENAME "rfspolout1" RECORDS 1 STEM dr. " ,
+  "OPEN_UPDATE CICS_APPLID "cicsregion" CLOSE"
+  IF rc > 0 THEN DO
+    vsamrc = rc
+  END
+  ELSE DO
+    RETURN rfspolout1
+  END
+END
+IF rfspolout2 <> '' THEN DO
+  "VSAMIO WRITE FILENAME "rfspolout2" RECORDS 1 STEM dr. " ,
+  "OPEN_UPDATE CICS_APPLID "cicsregion" CLOSE"
+  IF rc > 0 THEN DO
+    vsamrc = rc
+  END
+  ELSE DO
+    RETURN rfspolout2
+  END
+END
+IF rfspolout3 <> '' THEN DO
+  "VSAMIO WRITE FILENAME "rfspolout3" RECORDS 1 STEM dr. " ,
+  "OPEN_UPDATE CICS_APPLID "cicsregion" CLOSE"
+  IF rc > 0 THEN DO
+    vsamrc = rc
+  END
+  ELSE DO
+    RETURN rfspolout3
+  END
+END
+IF rfspolout4 <> '' THEN DO
+  "VSAMIO WRITE FILENAME "rfspolout4" RECORDS 1 STEM dr. " ,
+  "OPEN_UPDATE CICS_APPLID "cicsregion" CLOSE"
+  IF rc > 0 THEN DO
+    vsamrc = rc
+  END
+  ELSE DO
+    RETURN rfspolout4
+  END
+END
+wdrresult = 'ERROR'
+RETURN wdrresult
+/*********************************************************************/
+/* build_filelists                                                   */
+/*********************************************************************/
+build_filelists:
+PARSE ARG flsrcpath fltgtpath
+'EXECIO * DISKR DIRIN 1 (STEM dirin. BLKSIZE 25000 ' ,
+'RECFORM VARBLK'
+IF rc > 0 THEN DO
+  SAY ' '
+  msg = 'RFSTL31E DISKIO ERROR (RC='rc') '
+  msg = msg'READING RFSDIR FILE DURING BUILD_FILELISTS.'
+  SAY msg
+  CALL SENDMSG msg,'SYS'
+  IF 8 > maxreturncode THEN DO
+    maxreturncode = 8
+  END
+END
+ELSE DO
+  IF RIGHT(flsrcpath,1) <> '\' THEN DO
+    flsrcpath = flsrcpath || '\'
+  END
+  IF RIGHT(fltgtpath,1) <> '\' THEN DO
+    fltgtpath = fltgtpath || '\'
+  END
+  filecount = 0
+  DO w = 1 TO dirin.0
+    tmppos = POS(':',dirin.w) + 1
+    matchpath = SUBSTR(dirin.w,tmppos,LENGTH(flsrcpath))
+    IF flsrcpath = matchpath THEN DO
+      endlen = 250 - tmppos
+      sourcefile = STRIP(SUBSTR(dirin.w,tmppos,endlen))
+      filecount = filecount + 1
+      rfssrclist.filecount = sourcefile
+      /* Now build target file list */
+      IF flsrcpath = fltgtpath THEN DO
+        rfstgtlist.filecount = STRIP(sourcefile)
+      END
+      ELSE DO
+        /* Rebuild targetfile name with new path */
+        CALL get_file_portion sourcefile
+        tmpfilename = RESULT
+        tmpfilename = fltgtpath || tmpfilename
+        rfstgtlist.filecount = STRIP(tmpfilename)
+      END
+    END
+  END
+  IF filecount > 0 THEN DO
+    rfssrclist.0 = filecount
+    rfstgtlist.0 = filecount
+
+ /* DO o = 1 TO filecount
+      SAY 'rfssrclist.'o'=' || LEFT(rfssrclist.o,80)
+      SAY 'rfstgtlist.'o'=' || LEFT(rfstgtlist.o,80)
+    END */
+
+    RETURN 0
+  END
+  ELSE DO
+    RETURN 2
+  END
+END
+/*********************************************************************/
+/* End of program                                                    */
+/*********************************************************************/

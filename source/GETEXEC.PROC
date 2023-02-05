@@ -1,0 +1,20 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: GETEXEC.PROC                                              */
+/*********************************************************************/
+/* Exec to copy execs from POOL2:\EXECLIB to current RFS library     */
+ARG in
+IF LENGTH(in) <> 0 THEN DO
+  IF POS(':',in) = 0 THEN DO
+    'RFS COPY POOL2:\EXECLIB\'in' 'in
+    SAY 'File 'in' copied from POOL2:\EXECLIB.'
+  END
+  ELSE DO
+    SAY 'Input Paramter should only contain ''member.type'''
+  END
+END
+ELSE DO
+  SAY 'Input Paramter Required.  Please specify ''member.type'''
+END

@@ -1,0 +1,360 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: RFSSUBMT.PROC                                             */
+/*********************************************************************/
+/* This program is used to submit JCL jobstreams to the VSE system's */
+/* POWER Reader Queue.                                               */
+/*                                                                   */
+/* The program loads the JCL from the RFS file into a STEM variable, */
+/* can process Symbolic substitution (user a subroutine) and then    */
+/* uses the CICS SPOOLOPEN/SPOOLWRITE/SPOOLCLOSE Command Level API   */
+/* to load the JCL to the RDR Queue.                                 */
+/*                                                                   */
+/*********************************************************************/
+ARG in opt
+PARSE UPPER VAR opt opt
+IF opt = 'TRACE' THEN DO
+  TRACE ?ALL
+  opt = 'DEBUG'
+END
+IF opt = 'DEBUG' THEN SAY 'Executing SUBMIT.PROC - V1.0.4'
+IF LENGTH(in) <> 0 THEN DO
+  PARSE VAR in member '.' type
+  /* If SUBMIT command enter at command prompt without membertype  */
+  /* Default the membertype to .JCL                                */
+  IF LENGTH(type) = 0 THEN DO
+    type = '.JCL'
+    in = member || type
+  END
+  /* Validate USER is permitted to SUBMIT */
+  IF opt = 'DEBUG' THEN SAY 'Validating USER is permitted to SUBMIT'
+  CALL RFSAUTH SUBMIT
+  IF RESULT <> 0 THEN DO
+    IF RESULT = 99 THEN DO
+      IF opt <> 'SILENT' THEN DO
+        SAY 'Error reading IESCNTL file.'
+      END
+      EXIT 99
+    END
+    ELSE DO
+      IF opt <> 'SILENT' THEN DO
+        SAY 'You are not authorized to use the SUBMIT function.'
+      END
+      EXIT 99
+    END
+  END
+  /* Now process input file and submit JCL if everything is OK  */
+  IF opt = 'DEBUG' THEN SAY 'Reading RFS member into DATA. stem'
+  IF POS(':',in) = 0 THEN DO
+    'RFS DISKR 'in
+    IF rc <> 0 THEN DO
+      IF opt <> 'SILENT' THEN DO
+        SAY 'SUBMIT failed. rc='rc
+      END
+      EXIT rc
+    END
+    IF opt = 'DEBUG' THEN SAY 'Moving JCL to JCL. stem for processing'
+    DO i = 1 TO DATA.0
+      JCL.i = DATA.i
+    END
+    JCL.0 = DATA.0
+    CALL process_jobcard
+    IF RESULT <> 0 THEN DO
+      IF opt <> 'SILENT' THEN DO
+        SAY 'SUBMIT failed. rc='RESULT
+      END
+    END
+    ELSE DO
+      CALL valid_jcl
+      IF RESULT <> 0 THEN DO
+        IF opt <> 'SILENT' THEN DO
+          SAY 'SUBMIT failed. rc='RESULT
+        END
+      END
+      ELSE DO
+        IF opt = 'DEBUG' THEN DO
+          SAY 'Bypass SPOOL to POWER when debug option specified'
+        END
+        ELSE DO
+          CALL spool_jcl member
+          IF RESULT <> 0 THEN DO
+            IF opt <> 'SILENT' THEN DO
+              SAY 'SUBMIT failed. rc='RESULT
+            END
+          END
+        END
+      END
+    END
+  END
+  ELSE DO
+    IF opt <> 'SILENT' THEN DO
+      SAY 'Input Paramter should only contain ''member.type'''
+    END
+  END
+END
+ELSE DO
+  IF opt <> 'SILENT' THEN DO
+    SAY 'Input Paramter Required.  Please specify ''member.type'''
+  END
+END
+IF RESULT <> 0 THEN DO
+  EXIT RESULT
+END
+IF opt = 'DEBUG' THEN SAY 'Exiting from SUBMIT.PROC'
+RETURN 0
+/* END Mainline Code */
+/*********************************************************************/
+/*********************************************************************/
+/* Internal Subroutines:                                             */
+/*********************************************************************/
+process_jobcard:
+IF opt = 'DEBUG' THEN SAY 'Processing JECL JOB Card'
+/* Procedure to check coded JECL JOB card against standards     */
+/* and rebuild JECL JOB card to contain FROM, LDEST and SEC=    */
+/* parameters to proper ensure proper security and viewability  */
+/* of the job's output.                                         */
+/* */
+/* Get security info for use on JECL JOBCARD             */
+CALL RFSAUTH IESCNTL
+IF RESULT <> 99 THEN DO
+  password = RESULT
+END
+/* Validate USER is permitted to use custom JECL JOBCARD */
+CALL RFSAUTH JOBCARD
+IF RESULT = 0 THEN DO
+  /* Privledged USER, allow additional JECL JOB Card paramters */
+  newline = ''
+  from = 'FROM='USERID()','
+  ldest = 'LDEST=(,'USERID()'),'
+  sec = 'SEC=('USERID()','password')'
+  DO lineptr = 1 TO JCL.0
+    /* First, check for FROM, LDEST and SEC parms */
+    IF POS('FROM=',JCL.lineptr) <> 0 THEN DO
+      from = ''
+    END
+    IF POS('LDEST=',JCL.lineptr) <> 0 THEN DO
+      ldest = ''
+    END
+    IF POS('SEC=',JCL.lineptr) <> 0 THEN DO
+      sec = ''
+    END
+    JCL.lineptr = STRIP(JCL.lineptr,'T')
+    IF LENGTH(JCL.lineptr) < 72 THEN DO
+      newline = '* $$ ' || from || ldest || sec
+      IF SUBSTR(newline,LENGTH(newline),1) = ',' THEN DO
+        newline = LEFT(newline,LENGTH(newline)-1)
+      END
+      IF newline <> '* $$ ' THEN DO
+        /* Now add comma to end of card and continue char in 72 */
+        JCL.lineptr = JCL.lineptr || ','
+        JCL.lineptr = LEFT(JCL.lineptr,71,' ') || 'C'
+        /* Call insert_line here to add continued JECL JOB Card */
+        CALL insert_jcl_line lineptr newline
+        RETURN 0
+      END
+      ELSE DO
+        /* Nothing to add to JECL JOB Card, just get out */
+        RETURN 0
+      END
+    END
+  END  /* END DO lineprt = 1 TO JCL.0 */
+END
+PARSE UPPER VAR JCL.1 JCL.1
+IF SUBSTR(JCL.1, 1, 4) = '* $$' & POS('JOB', JCL.1) <> 0 THEN DO
+  newline = ''
+  from = 'FROM='USERID()','
+  ldest = 'LDEST=(,'USERID()'),'
+  sec = 'SEC=('USERID()','password')'
+  perform_return = 0
+  DO lineptr = 1 TO JCL.0
+    /* First, check for FROM, LDEST and SEC parms */
+    IF POS('FROM=',JCL.lineptr) <> 0 THEN DO
+      IF opt <> 'SILENT' THEN DO
+        SAY 'JECL JOB card contains FROM= parameter.  Not Permitted.'
+      END
+      perform_return = 1
+    END
+    IF POS('LDEST=',JCL.lineptr) <> 0 THEN DO
+      IF opt <> 'SILENT' THEN DO
+        SAY 'JECL JOB card contains LDEST= parameter.  Not Permitted.'
+      END
+      perform_return = 1
+    END
+    IF POS('SEC=',JCL.lineptr) <> 0 THEN DO
+      IF opt <> 'SILENT' THEN DO
+        SAY 'JECL JOB card contains SEC= parameter.  Not Permitted.'
+      END
+      perform_return = 1
+    END
+    JCL.lineptr = STRIP(JCL.lineptr,'T')
+    IF LENGTH(JCL.lineptr) < 72 THEN DO
+      IF perform_return <> 0 THEN RETURN 10
+      newline = '* $$ ' || from || ldest || sec
+      /* Now add comma to end of card and continue char in 72 */
+      JCL.lineptr = JCL.lineptr || ','
+      JCL.lineptr = LEFT(JCL.lineptr,71,' ') || 'C'
+      /* Call insert_line here to add continued JECL JOB Card */
+      CALL insert_jcl_line lineptr newline
+      RETURN 0
+    END
+  END  /* END DO lineprt = 1 TO DATA.0 */
+END
+ELSE DO
+  IF opt <> 'SILENT' THEN DO
+    SAY 'JCL does not contain a valid JECL jobcard on line 1.'
+  END
+  RETURN 11
+END
+RETURN 0
+/* */
+spool_jcl:
+/* Procedure to spool JCL to READER QUEUE using CICS SPOOL API */
+ARG jname
+rpt_token = ''
+'CICS SPOOLOPEN REPORT('jname') JCL TOKEN(rpt_token)'
+IF rc = 0 THEN DO
+  DO i = 1 TO JCL.0
+    IF LENGTH(JCL.i) = 0 THEN DO
+      /* SPOOLWRITE can't handle 0 length record */
+      JCL.i = ' '
+    END
+    'CICS SPOOLWRITE FROM(JCL.i) LINE TOKEN(rpt_token)'
+    IF rc <> 0 THEN DO
+      IF opt <> 'SILENT' THEN DO
+        SAY 'Error occurred during SPOOLWRITE. rc='rc
+      END
+      RETURN 12
+    END
+  END
+  'CICS SPOOLCLOSE REPORT('jname') TOKEN(rpt_token) RELEASE'
+  IF rc <> 0 THEN DO
+    IF opt <> 'SILENT' THEN DO
+      SAY 'Error occurred during SPOOLCLOSE. rc='rc
+    END
+    RETURN 13
+  END
+  ELSE DO
+    IF opt <> 'SILENT' THEN DO
+      SAY 'File 'in' submitted.'
+    END
+  END
+END
+ELSE DO
+  IF opt <> 'SILENT' THEN DO
+    SAY 'Error occurred during SPOOLOPEN. rc='rc
+  END
+  RETURN 14
+END
+RETURN 0
+/* */
+valid_jcl:
+/* Procedure to process JCL substitution and check JCL syntax  */
+i = 0
+DO WHILE i < JCL.0
+  i = i + 1
+  IF opt = 'DEBUG' THEN DO
+    SAY 'Begin Processing i = 'i'   JCL.0 = 'JCL.0
+    SAY 'JCL.'i'='JCL.i
+  END
+  IF SUBSTR(JCL.i, 1, 4) = '* $$' THEN DO
+    PARSE UPPER VAR JCL.i JCL.i
+  END
+  IF SUBSTR(JCL.i, 1, 8) = '/INCLUDE' THEN DO
+    /* Call insert_line here to add continued JECL JOB Card */
+    IF opt = 'DEBUG' THEN SAY 'Processing /INCLUDE'
+    PARSE VAR JCL.i . include_mem .
+    include_mem = STRIP(include_mem,'B')
+/*  IF POS('.',include_mem) = 0 THEN DO
+      include_mem = include_mem'.JCL'
+    END  */
+    IF opt = 'DEBUG' THEN SAY 'Reading RFS member into DATA. stem'
+    'RFS DISKR 'include_mem
+    IF rc <> 0 THEN DO
+      IF opt <> 'SILENT' THEN DO
+        SAY '/INCLUDE 'include_mem' not be resolved. SUBMIT failed.'
+      END
+      EXIT rc
+    END
+    IF opt = 'DEBUG' THEN SAY 'Removing /INCLUDE statment from JCL.'
+    CALL delete_jcl_line i
+    i = i - 1
+    IF opt = 'DEBUG' THEN DO
+      /* Get current RFS Path */
+      ADDRESS REXXCICS 'CD'
+      rfs_path = RESULT
+      IF opt <> 'SILENT' THEN DO
+        SAY '/INCLUDE 'include_mem' being processed from 'rfs_path
+      END
+    END
+    IF opt = 'DEBUG' THEN SAY 'Inserting Include into JCL'
+    DO z = DATA.0 TO 1 BY -1
+      CALL insert_jcl_line i DATA.z
+    END
+  END
+  IF SUBSTR(JCL.i, 1, 6) = '// JOB' THEN DO
+    newline = '/* Submitted by 'USERID()' on 'DATE('U')' at 'TIME()
+    /* Call insert_line here to add comment card to JCL     */
+    CALL insert_jcl_line i newline
+  END
+  IF SUBSTR(JCL.i, 1, 6) = '// ID ' THEN DO
+    /* Validate USER is permitted to use // ID card */
+    CALL RFSAUTH JCLID
+    IF RESULT <> 0 THEN DO
+      /* No, get out and don't submit JCL */
+      IF opt <> 'SILENT' THEN DO
+        SAY 'JCL contains // ID card.  Not permitted.'
+      END
+      RETURN 15
+    END
+  END
+  IF opt = 'DEBUG' THEN DO
+    SAY 'End Processing i = 'i'   JCL.0 = 'JCL.0
+  END
+END
+IF opt = 'DEBUG' THEN DO
+  SAY '*********************************************************'
+  SAY '************** Generated JCL to be Spooled **************'
+  SAY '*********************************************************'
+  ruler = '----+---10----+---20----+---30----+---40----+---50'
+  ruler = ruler || '----+---60----+---70-|--+---80'
+  SAY ruler
+  DO j = 1 TO JCL.0
+    SAY JCL.j
+  END
+END
+RETURN 0
+
+insert_jcl_line:
+/* Procedure to insert stem element in JCL. stem */
+ARG afterline newdata
+startline = JCL.0 + 1
+lastline = afterline + 1
+DO ln = startline TO lastline BY -1
+  prev_ln = ln - 1
+  JCL.ln = JCL.prev_ln
+END
+JCL.lastline = newdata
+JCL.0 = startline
+IF opt = 'DEBUG' THEN DO
+  SAY 'Inserting JCL Card.'
+  SAY JCL.lastline
+END
+RETURN 0
+
+delete_jcl_line:
+/* Procedure to delete stem element in JCL. stem */
+ARG deleteline
+IF opt = 'DEBUG' THEN DO
+  SAY 'Deleting JCL Card:'deleteline
+  SAY JCL.deleteline
+END
+startline = deleteline
+lastline = JCL.0 - 1
+DO ln = startline TO lastline
+  next_ln = ln + 1
+  JCL.ln = JCL.next_ln
+END
+JCL.0 = lastline
+RETURN 0

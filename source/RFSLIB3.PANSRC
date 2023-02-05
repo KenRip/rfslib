@@ -1,0 +1,43 @@
+.DEFINE < turq protect
+.DEFINE @ turq skip
+.DEFINE ! white protect
+.DEFINE > green unprotect underline
+.DEFINE & var input_stem.
+.DEFINE # var disp_stem1.
+.DEFINE ^ var disp_stem2.
+.DEFINE % var newfnam_stem.
+.DEFINE ~ var newftyp_stem.
+.PANEL rfslib3
+<RFSLIB3              !RFS FILE SYSTEM LIBRARY                 <PAGE<&sp@OF<&ep@
+<LIBRARY:!&rfsdir
+<OPTIONS:   1=EDIT       2=CHANGETO    3=PRINT       4=COPY/MOVE   5=DELETE
+<           6=RENAME     7=SUBMIT      8=COMPILE     9=DISPLAY
+<CMD:>&rexxcmd                                                                 @
+<  !OPT<FILENAME FILETYPE   NEWNAME   NEWTYPE   DATE/TIME              SIZE
+<      !&byname           <                    !&bydate            <!&bysize  <
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<   >&@<#                 @>%       @>~       @<^
+<
+<PF1=HELP      PF2=REFRESH   PF3=END         PF5=UP ONE DIR  PF6=NEW MEM/DIR
+<&pf7        @<&pf8       @  PF9=SORT.DATE  PF10=SORT.NAME  PF11=SORT.SIZE
+!&rfslib_msgline
+<                                           FILENAME PREFIX (PF2):>&rfspre@
+.PANEL

@@ -1,0 +1,31 @@
+.DEFINE < turq protect
+.DEFINE @ turq skip
+.DEFINE ! white protect
+.DEFINE > green unprotect underline
+.DEFINE # var compd_stem1.
+.PANEL rfscompd
+<RFSCOMPD              !COMPILE SELECTION INFORMATION          <PAGE<&cs@OF<&ce@
+<
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+< <#                                                                           <
+<
+<                            PF3=END
+<&cpf7       @<&cpf8      @
+!&rfscompd_msgline
+<
+.PANEL

@@ -1,0 +1,35 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: SETUSER.PROC                                              */
+/*********************************************************************/
+/* Exec to copy sample profile members to user's RFS library.        */
+ARG in opt
+PARSE UPPER VAR opt opt
+IF opt = 'TRACE' THEN DO
+  TRACE ALL
+  opt = 'DEBUG'
+END
+IF opt = 'DEBUG' THEN SAY 'Executing SETUSER.PROC'
+userlib = 'POOL1:\USERS'
+publib = 'POOL2:\PUBLIC'
+IF LENGTH(in) <> 0 THEN DO
+  IF POS(':',in) = 0 THEN DO
+   in = STRIP(in,'B')
+   IF opt = 'DEBUG' THEN SAY 'Copying EDITPROF.EXEC'
+   'RFS COPY 'publib'\EDITPROF.EXEC 'userlib'\'in'\EDITPROF.EXEC'
+/* IF opt = 'DEBUG' THEN SAY 'Copying FLSTPROF.EXEC'
+   'RFS COPY 'publib'\FLSTPROF.EXEC 'userlib'\'in'\FLSTPROF.EXEC' */
+   IF opt = 'DEBUG' THEN SAY 'Copying PRINT.PROFILE'
+   'RFS COPY 'publib'\PRINT.PROFILE 'userlib'\'in'\PRINT.PROFILE'
+    SAY 'Files have been copied to 'userlib'\'in
+  END
+  ELSE DO
+    SAY 'Input Paramter should only contain valid USERID'
+  END
+END
+ELSE DO
+  SAY 'Input Paramter Required.  Please specify valid USERID'
+END
+IF opt = 'DEBUG' THEN SAY 'Exiting SETUSER.PROC'
