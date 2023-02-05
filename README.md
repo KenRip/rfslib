@@ -3,8 +3,22 @@
 ## Table of Contents
 
 - [Introduction](#introduction)
+  - [Installation Prerequisite](installation-prerequisite)
 - [Functionality](#functionality)
   - [TOP AREA](#top-area)
+- [RFSLIB Commands](rfslib-commands)
+- [CICS/REXX Full Screen Editor](cics/rexx-full-screen-editor)
+  - [Overview](overview)
+  - [Screen Format](screen-format)
+  - [Prefix Commands](prefix-commands)
+  - [Individual Line Commands](individual-line-commands)
+  - [Consecutive Block Commands](consecutive-block-commands)
+  - [Command Line Commands](command-line-commands)
+- [Installation](installation)
+  - [Installation Steps](installation-steps)
+  - [Tailoring JCL Skeletons](tailoring-jcl-skeletons)
+  - [Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application](tailoring-existing-cics/rexx-procs-to-enhance-the-functionality-of-the-rfslib-application)
+  - [Cross reference of VSE Library members provided with the RFSLIB application](cross-reference-of-vse-library-members-provided-with-the-rfslib-application)
 
 ## Introduction
 
@@ -566,9 +580,9 @@ IBM Publication Number SC34-5764-01.
 ### Installation Steps
 <to be create>
 
-### Tailoring JCL Skeletons for use with "Compile" feature of RFSLIB...
+### Tailoring JCL Skeletons
 	
-	Using the IBM provided Skeletons in ICCF Library 2 you can tailor the do the following...
+	The RFSLIB Application requires tailoring of JCL skeletions for use with the RFSLIB "Compile" feature.  One option is using the IBM provided Skeletons in ICCF Library 2 as the basis of the RFSLIB skeletons.  To do so you can do the following...
 	
 		1) Catalog the appropriate ICCF skeleton members from ICCF library 2 into PRD2.CONFIG (or you desginated RFS Skeleton sublibrary in RFS.CONFIG).
 		2) Make the following replacements in the skeletons...
@@ -595,7 +609,7 @@ These members include the following...
 	CICSPROF.PROC
 	CICSTART.PROC
 	
-### Cross-reference of VSE Library members provided with the RFSLIB application
+### Cross reference of VSE Library members provided with the RFSLIB application
 
 Members in PRD2.RFSLIB for the main "RFSLIB" application...
     RFSAUTH.PROC      - RFSLIB interface to an External Security Manager to provide security around the RFSLIB product's features and functions.
