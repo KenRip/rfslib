@@ -169,9 +169,9 @@ The RFSLIB product adds support for RFS filename level enqueue / dequeue support
 
 Please note that this command is typically restricted to the System Administrator or Security Administrator.
 
-##CICS REXX Full Screen Editor
+## CICS/REXX Full Screen Editor
 
-###Overview
+### Overview
 
 The CICS/REXX Full Screen Editor is patterned after VM/CMS XEDIT. The editor is provided so data can be created, updated and viewed from within the CICS environment.
 
@@ -179,7 +179,7 @@ The CICS/REXX editor includes several prefix commands (for example: C, CC, M, MM
 
 While in an editor session, commands entered on the command line can be chained by placing a ";" between each command. Support is also provided for macros written in REXX. This lets you customize editor settings with a profile exec or add new commandes to the editor.
 
-###Screen Format
+### Screen Format
 
 The CICS/REXX Editor screen is laid out as follows...
 
@@ -194,11 +194,11 @@ The line which starts with "COMMAND ===>" is the Command Line where Editor comma
 
 The Data Lines area of the screen is used to display and edit your data. Each line in the Data Area contains a The Data Lines area of the screen is used to display and edit your data. Each line in the Data Area contains a "prefix area" which typically displays the line number of each data line. Prefix Commands may be entered in this "prefix area".
 
-###Prefix Commands
+### Prefix Commands
 
 Several prefix commands are provided by the Editor. These commands are entered in the prefix area and give you the ability to copy, move, delete and replicate lines on either an individual or a consecutive block basis.
 
-###Individual Line Commands
+### Individual Line Commands
 
 The folloing commands work with individual lines and consist of one character...
 '/' - Specify current line in file
@@ -211,7 +211,7 @@ The folloing commands work with individual lines and consist of one character...
 
 When you enter one of these commands in the prefix area of a line the command performs its respective function on that line. You can also append a number to the end of the prefix command. This acts as a replication factor. If number "5" is appended to the "I" command five lines are inserted into the file.
 
-###Consecutive Block Commands
+### Consecutive Block Commands
 
 The following commands work with consecutive blocks of lines and consist of two characters...
 'DD' - Delete a block of lines
@@ -225,7 +225,7 @@ The following commands work with consecutive blocks of lines and consist of two 
 Block commands are processed in pairs. You place one command in the prefix area of the first line of the block and place the same command in the prefix area of the last line of the block.  For example to delete a block of lines place a "DD" in the prefix area of the first line of the block and a "DD" in the prefix area of the last line in the block. If this was done on lines 00001 and 00005 it would delete line 00001 through 00005 inclusive.  The only block prefix command that
 allows a replication factor is the replicate command ('RR' or '""').  The replication factor must be specified with the first 'RR' replication command.
 
-###Destination Commands
+### Destination Commands
 
 The following commands are called destination commands...
 'A' - After
@@ -235,7 +235,7 @@ The following commands are called destination commands...
 
 These commands are used in conjunction with the copy and move commands (both individual and consecutive block) to specify the placement of the resulting copy or move function.
 
-###Command Line Commands
+### Command Line Commands
 
 The syntax and description for each of the Command Line commands follows...
 
@@ -563,10 +563,10 @@ IBM Publication Number SC34-5764-01.
 
 ## Installation
 
-###Installation Steps
+### Installation Steps
 <to be create>
 
-###Tailoring JCL Skeletons for use with "Compile" feature of RFSLIB...
+### Tailoring JCL Skeletons for use with "Compile" feature of RFSLIB...
 	
 	Using the IBM provided Skeletons in ICCF Library 2 you can tailor the do the following...
 	
@@ -584,7 +584,7 @@ IBM Publication Number SC34-5764-01.
 		3) Copy RFSCOMP.Z to PRD2.CONFIG as RFSCOMP.CONFIG and tailor this member as needed for the skeleton member names you created above.
 		   Note: RFSCOMP.Z ships pre-configured for supporting the VSE provided Assembler and COBOL for z/VSE skeleton names.
 
-###Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application
+### Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application
 
 With a few minor changes to several of the CICS/REXX PROCs shipped with VSE you can provide some needed enhancements to how the RFSLIB application functions.
 
@@ -595,7 +595,7 @@ These members include the following...
 	CICSPROF.PROC
 	CICSTART.PROC
 	
-###Cross-reference of VSE Library members provided with the RFSLIB application
+### Cross-reference of VSE Library members provided with the RFSLIB application
 
 Members in PRD2.RFSLIB for the main "RFSLIB" application...
     RFSAUTH.PROC      - RFSLIB interface to an External Security Manager to provide security around the RFSLIB product's features and functions.
