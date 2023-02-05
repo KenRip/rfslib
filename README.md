@@ -671,9 +671,11 @@ Additional members in PRD2.RFSLIB which add features and functions to the REXX a
     VIEW.PROC         - PROC which provides the "VIEW" command functionality from the REXX and FLST transactions.
 
 These members in PRD2.RFSLIB will be copied to PRD2.CONFIG and control the configuration of the RFSLIB application...
+
     RFSCOMP.Z         - Will be copied to PRD2.CONFIG as RFSCOMP.CONFIG 
     RFSLIB.Z          - Will be copied to PRD2.CONFIG as RFSLIB.CONFIG
 
 For CICS/REXX Security Features (security over the RFS File System and access to VSE Library members) you will need to CICS Translate, Assemble and Link tailored versions of the CICSECX1 and CICSECX2 Security Exits.  Sample sourcecode for these is provided in PRD2.RFSLIB in the following members...
+
     CICSECX1.A
     CICSECX2.A
