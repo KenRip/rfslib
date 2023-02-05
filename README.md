@@ -593,15 +593,19 @@ IBM Publication Number SC34-5764-01.
 The RFSLIB Application requires tailoring of JCL skeletions for use with the RFSLIB "Compile" feature.  One option is using the IBM provided Skeletons in ICCF Library 2 as the basis of the RFSLIB skeletons.  To do so you can do the following...
 	
 1) Catalog the appropriate ICCF skeleton members from ICCF library 2 into PRD2.CONFIG (or you desginated RFS Skeleton sublibrary in RFS.CONFIG).
-2) Make the following replacements in the skeletons...
-a) Locate all occurrances of the "* $$ SLI" card included in the skeleton.  It normally looks like the following...
+2) Locate all occurrances of the "* $$ SLI" card included in the skeleton.  It normally looks like the following...
+	
     * $$ SLI ICCF=(&PROGNAME,&PASSWORD),LIB=(&LIBNO)
+	
 Replace all occurrances of this entire card with the following...
+	
     /INCLUDE &&PARAM2
-b) Replace all occurrances of &JOBNAME with &&PARAM1
-c) Replace all occurrances of &PROGNAME with &&PARAM1
-d) Replace all occurrances of &CATALOG and &HTML (present in MAP related skeletons) to an approriate value of 1 or 2. These values are not provided by the RFSLIB "Compile" feature ao they most be hardcoded into your skeletons as required.  In most cases you would set this to 1 for Catalog and 2 for HTML unless you also required generation of the HTML templates. 
-3) Copy RFSCOMP.Z to PRD2.CONFIG as RFSCOMP.CONFIG and tailor this member as needed for the skeleton member names you created above.
+	
+3) Replace all occurrances of &JOBNAME with &&PARAM1
+4) Replace all occurrances of &PROGNAME with &&PARAM1
+5) Replace all occurrances of &CATALOG and &HTML (present in MAP related skeletons) to an approriate value of 1 or 2. These values are not provided by the RFSLIB "Compile" feature ao they most be hardcoded into your skeletons as required.  In most cases you would set this to 1 for Catalog and 2 for HTML unless you also required generation of the HTML templates. 
+6) Copy RFSCOMP.Z to PRD2.CONFIG as RFSCOMP.CONFIG and tailor this member as needed for the skeleton member names you created above.
+
 Note: RFSCOMP.Z ships pre-configured for supporting the VSE provided Assembler and COBOL for z/VSE skeleton names.
 
 ### Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application
