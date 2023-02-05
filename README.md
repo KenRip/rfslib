@@ -23,7 +23,7 @@ The RFSLIB main screen is a member listing and selection screen similar to that 
 
 The screen is broken into several areas.  These are...
 
-###TOP AREA
+### TOP AREA
 
 The top of the screen contains a list of selections available which can be placed in the prefix area in front of a file or directory to perfrom a specific operation.  These include...
 
