@@ -13,7 +13,9 @@
 	  - [Tailoring CICFPROF.PROC](#tailoring-cicfprofproc)
 	  - [Tailoring CICSPROF.PROC](#tailoring-cicsprofproc)
     - [Tailoring JCL Skeletons](#tailoring-jcl-skeletons)
-    - [Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application](#tailoring-existing-cicsrexx-procs-to-enhance-the-functionality-of-the-rfslib-application)
+	- [Installing RFSLIB Panels](#installing-rfslib-panels)
+	- [Tailoring the RFSLIB.CONFIG member](#tailoring-the-rfslibconfig-member)
+	- [Tailoring the CICS/REXX Security Exits for interfacing with an External Security Manager](#tailoring-the-cicsrexx-security-exits-for-interfacing-with-an-external-security-manager)
 - [Functionality](#functionality)
   - [TOP AREA](#top-area)
   - [COMMANE LINE AREA](#command-line-area)
@@ -198,9 +200,116 @@ Copy RFSCOMP.Z to PRD2.CONFIG as RFSCOMP.CONFIG and tailor this member as needed
 
 Note: RFSCOMP.Z ships pre-configured for supporting the VSE provided Assembler and COBOL for z/VSE skeleton names.
 
+#### Installing RFSLIB Panels
+
+The CICS/REXX Panel Facility relies on the panels being installed in an RFS File System directory.  By default the RFSLIB application uses the POOL2:\PANELS directory for this (although this could be modified in the RFSLIB.CONFIG member described in the next section).
+
+The RFSLIB "PANSRC" members are included in the PRD2.RFSLIB sublibrary but need to be copied to the POOL2:\PANELS directory.  This can be performed using the following command...
+
+    CALL RFSPANLS.PROC
+	
+If the location is another folder other than POOL2:\PANELS you can override the default location by executing the command with the input paramter of the alternate location like this...
+
+    CALL RFSPANLS.PROC 'POOL1:\RFSLPANS'
+	
 #### Tailoring the RFSLIB.CONFIG member
 
-To-be complete.
+The default RFSLIB.CONFIG member is included in the PRD2.RFSLIB sublibrary as member RFSLIB.Z.  Copy this memebr to PRD2.CONFIG as RFSLIB.CONFIG and tailor it to meet you needs.
+
+Here's the default values provided...
+
+    RFSPRODUCTLIB = 'PRD2.RFSLIB'      
+    USEESM = 'NO'                      
+    VSEIUISTARTED = 'NO'               
+    DTSFILEVOLUME = 'SYSWK1'           
+    DEFAULTPRINTCLASS = 'A'            
+    DEFAULTPRINTDISP = 'H'             
+    DEFAULTPRINTFORM = ''              
+    DEFAULTTOUSERDIR = 'YES'           
+    RFSUSERDIR = 'POOL1:\USERS'        
+    RFSTOPDIR = 'POOL1:\USERS'         
+    RFSPANELPATH = 'POOL2:\PANELS'     
+    DEFAULTSORT = 'DATE'               
+    DEFAULTSORTORDER = 'D'             
+    SKELETONLIB = 'PRD2.CONFIG'        
+    SKELETONMEMTYPE = 'SKELETON'       
+    RFSHELPLIB = 'PRD2.RFSLIB'         
+
+These values will work for most installations.  Here's a description of each setting and it's valid values...
+
+**RFSPRODUCTLIB**
+
+Set this value to the VSE sublibrary where the RFSLIB application was installed.  The value must be contained in single quotes as the default value above shows.
+
+**USEESM**
+
+This value is used to control if the RFSLIB application uses an interface to an External Security Manager (ESM) like the VSE Basic Security Manager or a 3rd party product like Top Secret.
+
+Valid values are 'YES' or 'NO'.  The value must be contained in single quotes as the default value above shows.
+
+**VSEIUISTARTED**
+
+This value controls the return behavior when exiting the RFSLIB application.  If you have added the start of the RFSLIB application to a VSE Internative User Interface (IUI) Selection Panel then you should set this value to 'YES'.  Otherwise set this value to 'NO'.  The value must be contained in single quotes as the default value above shows.
+
+**DTSFILEVOLUME**
+
+Specify the DASD volume where your ICCF DTSFILE file is located.  The value must be contained in single quotes as the default value above shows.
+
+**DEFAULTPRINTCLASS**
+
+Specify the POWER LST CLASS that the RFSLIB PRINT function will defaults to.  The value must be contained in single quotes as the default value above shows.
+
+**DEFAULTPRINTDISP**
+
+Specify the POOWER LST DISP that the RFSLIB PRINT function will defaults to.  The value must be contained in single quotes as the default value above shows.
+
+**DEFAULTPRINTFORM**
+
+Specify the POWER LST FNO (FORM) value the RFSLIB PRINT function defaults to.  This can be blank (a value of '').  When specified the value must be contained in single quotes as the default value above shows.
+
+**DEFAULTTOUSERDIR**
+
+This value controls whether the default directory set when a user first enters the RFSLIB application will be their default USERS directory.
+
+Valid values are 'YES' or 'NO'.  The value must be contained in single quotes as the default value above shows.
+
+**RFSUSERDIR**
+
+This sets the default USERS folder location in the RFS File System.  The default value is 'POOL1:\USERS'.  The value must be contained in single quotes as the default value above shows.
+
+**RFSTOPDIR**
+
+This value limits the TOP MOST directory a user can navigate to using the normal RFSLIB navigation of Option 2 and PF4.  The default value is 'POOL1:\USERS'.  The value must be contained in single quotes as the default value above shows.
+
+Note: an authorized user can use the Command Line 'CD' command to navigate outside the limits set my this option.
+
+**RFSPANELPATH**
+
+This sets the default PANELS folder location for the RFSLIB PANELS.  The default value is 'POOL2:\PANELS'.  The value must be contained in single quotes as the default value above shows.
+
+**DEFAULTSORT**
+
+This value controls the default SORT option initially displayed to a user in the RFSLIB application.
+
+Valid values are 'DATE', 'NAME' or 'SIZE'.  The value must be contained in single quotes as the default value above shows.
+
+**DEFAULTSORTORDER**
+
+This value controls the default SORT order initially displayed to a user in the RFSLIB application.
+
+Valid values are 'D' (for descending) and 'A' (for ascending).  The value must be contained in single quotes as the default value above shows.
+
+**SKELETONLIB**
+
+This sets the default Skeleton VSE sublibrary location for the RFSLIB SKELETON members.  The default value is 'PRD2.CONFIG'.  The value must be contained in single quotes as the default value above shows.
+
+**SKELETONMEMTYPE**
+
+This sets the default Skeleton VSE sublibrary member type for the RFSLIB SKELETON members.  The default value is 'SKELETON'.  The value must be contained in single quotes as the default value above shows.
+ 
+**RFSHELPLIB**
+
+This sets the default VSE sublibrary where the RFSLIB Help File is located.  The default value is 'PRD2.RFSLIB'.  The value must be contained in single quotes as the default value above shows.
 
 #### Tailoring the CICS/REXX Security Exits for interfacing with an External Security Manager
 
