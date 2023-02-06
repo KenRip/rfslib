@@ -3,7 +3,7 @@
 ## Table of Contents
 
 - [Introduction](#introduction)
-  - [Installation Prerequisite](installation-prerequisite)
+  - [Installation Prerequisite](#installation-prerequisite)
 - [Functionality](#functionality)
   - [TOP AREA](#top-area)
   - [COMMANE LINE AREA](#command-line-area)
@@ -589,10 +589,137 @@ IBM Publication Number SC34-5764-01.
 
 ## Installation
 
-### Installation Steps
-<to be create>
+The first part of installing the RFSLIB application is ensuring you have met the prerequisite requirements discussed in the "Introduction" section of this document.  By default the configuration of the RFSLIB application is configured to use both an RFS "POOL1:" and RFS "POOL2:" file systems.  As part of the default CICS/REXX setup VSE ships with the necessary VSAM files defined to support both file systems.  As part of the process you will format both these file systems.  You will also tailor the CICSTART.PROC in PRD2.CONFIG (orignally shipped in PRD1.BASE).  Tailoring should include updating the "AUTHUSER RCUSER" statement to add any additional userids that would be "authorized" users in the CICS/REXX environment.  You will also perform steps to generate the supplied CICS/REXX online help files (VSE default location is POOL2:\BOOK).  Finally you will run the installation verification PROC called CICIVP1 to verify your CICS/REXX environment is working properly.
 
-### Tailoring JCL Skeletons
+### Installation Steps
+
+#### Restore RFSLIB VSE Library to your system
+
+For the actual installation of the RFSLIB application there is a provided VSE Librarian Backup file in the format of an AWS Virtual Tape.  This VSE library backup can be restored using JCL simulare to the following...
+
+    * $$ JOB JNM=LIBRREST,CLASS=0,DISP=D                       
+    * $$ LST CLASS=A,DISP=D                                    
+    // JOB LIBRREST 
+    // ON $CANCEL OR $ABEND GOTO VTAPSTOP
+    VTAPE START,UNIT=cua,LOC=<hostname/ipaddr of VTAPE server>,FILE='<path to AWS file>'
+    // ASSGN SYS005,cua                                        
+    // MTC REW,SYS005                                          
+    // EXEC LIBR                                   
+      RESTORE PRD2.RFSLIB.*.*:PRD2.RFSLIB T=SYS005 REP=YES   
+    /*          
+    /. VTAPESTOP
+    VTAPE STOP,UNIT=cua
+    /*
+    /&                                                         
+    * $$ EOJ                                                   
+
+Note: This JCL may require tailoring for your environment and at a minumum the "cua" of the VSE VTAPE device must be specified.
+
+#### Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application
+
+Once the VSE library is installed there are a number of steps to be completed to tailor the RFSLIB application for you environment.  With a few minor changes to several of the CICS/REXX PROCs shipped with VSE you can provide some needed enhancements to how the RFSLIB application functions.
+
+These members include the following...
+
+	CICSTART.PROC
+	CICESVR.PROC 
+	CICFPROF.PROC
+	CICSPROF.PROC
+
+##### Tailoring the CICSTART.PROC
+
+By default CICS/REXX will automatically "authorize" the VSE sublibrary where the CICSTART.PROC is loaded from which is usually PRD2.CONFIG.  Because the RFSLIB application is loaded into another VSE library called PRD2.RFSLIB the CICSSTART.PROC must be updated to "authorize" this additional library.
+
+This involves editing the CICSTART.PROC member in PRD2.CONFIG and locating the following lines...
+
+    HELPPATH = 'POOL2:\BOOK'               /* SET HELP PATH       OW06629*/
+    'RLS VARPUT HELPPATH \SYSTEM\DEFAULTS' /* SAVE IT             OW06629*/
+    IF RC ^= 0 THEN EXIT RC                /* EXIT IF ERROR       OW06629*/
+
+Insert the following lines after the lines above...
+
+    'SETSYS AUTHCLIB PRD2.CONFIG' 
+    'SETSYS AUTHCLIB PRD2.RFSLIB' 
+    'SETSYS AUTHELIB PRD2.CONFIG' 
+    'SETSYS AUTHELIB PRD2.RFSLIB' 
+    
+Note: It is recommended to include PRD2.CONFIG statements even though PRD2.CONFIG would normally be automatically "authorized" at startup of CICS/REXX.  This will avoid any issues if you change your CICS partitions LIBDEF SEARCH order.
+
+It is also recommended that you uncomment the following lines if you haven't done so during your initial tailoring of the CICS/REXX environemnt...
+
+    /* 'EXECLOAD PROCLIB CICEDIT' */       /* $V1C    OW20371,    OW06629*/
+    /* 'EXECLOAD PROCLIB CICESVR' */       /* $V1C    OW20371,    OW06629*/
+    /* 'EXECLOAD PROCLIB CICEPROF'*/       /* $V1C                OW20371*/
+    
+These would now look something like this...
+
+    'EXECLOAD PROCLIB CICEDIT'             /* $V1C    OW20371,    OW06629*/
+    'EXECLOAD PROCLIB CICESVR'             /* $V1C    OW20371,    OW06629*/
+    'EXECLOAD PROCLIB CICEPROF'            /* $V1C                OW20371*/
+
+##### Tailoring CICESVR.PROC
+
+To eliminate an annoying "flash" of an unformatted 3270 screen when exiting the CICS/REXX Editor and returning to the RFSLIB application make the following change to the CICESVR.PROC.  It is recommended that you first copy CICESVR.PROC from PRD1.BASE to PRD2.CONFIG and update the version in PRD2.CONFIG.
+
+Locate the following lines in the CICESVR.PROC member (they will be at the very bottom of the member)...
+
+    ESVR.EXITMSG     = 'Edit session complete;'
+    ESVR.MSG         = 'REXX/CICS Editor'      
+
+Change them to the following...
+
+    ESVR.EXITMSG     = ''
+    ESVR.MSG         = ''      
+
+Note: this will have no adverse effect of the functionality of CICS/REXX outside the RFSLIB application.
+
+##### Tailoring CICFPROF.PROC
+
+To add some enhancements to the CICS/REXX FLST transaction you can perform the following update to the CICFPROF.PROC.  It is recommended that you first copy CICFPROF.PROC from PRD1.BASE to PRD2.CONFIG and update the version in PRD2.CONFIG.
+
+Add the following lines anywhere between the "ADDRESS FLSTSVR" and "ADDRESS REXXCICS" statements...
+
+    'SET PFKEY 4 SUB' 
+    'SET PFKEY 6 VIEW'   
+    'SYNONYM DEL RFS DELETE'   
+    'SYNONYM PRT PRINT'        
+    'SYNONYM RFRSH REFRESH'    
+    'SYNONYM SUB SUBMIT'       
+
+Note: This will add these PFKEY and Command Synonyms to the CICS/REXX FLST Transaction.  This will have no adverse effect of the functionality of CICS/REXX outside the RFSLIB application.
+
+##### Tailoring CICSPROF.PROC 
+
+Note: This step is optional.  The changes made here are only necessary if you want to update the CICS/REXX EXEC PATH or if you intend to run the CICS/REXX environment and the RFSLIB application with integration to an External Security Manager (ESM) like the VSE Basic Security Manager or a 3rd Party ESM like Top Secret.
+
+To update the CICS/REXX EXEC PATH you can perform the following update to the CICSPROF.PROC.  It is recommended that you first copy CICSPROF.PROC from PRD1.BASE to PRD2.CONFIG and update the version in PRD2.CONFIG.
+
+Locate the following statement in CICSPROF.PROC...
+
+    EXECEXIT: ROUT = 'EXIT'
+
+Add the following line after the above line...
+
+    ADDRESS REXXCICS 'PATH POOL2:\EXECLIB'  /* Set default PATH       */
+
+Note: The above value "POOL2:\EXECLIB" is simply an example.  You can add any RFLS folders to this if needed.  Please refer to the IBM CICS Transaction Server for VSE/ESA REXX Guide for more information on the "PATH" command.
+
+To add support for automatically defaulting the RFS "MKDIR" command to use the "SECURED" option perform the following update to the CICSPROF.PROC. It is recommended that you first copy CICSPROF.PROC from PRD1.BASE to PRD2.CONFIG and update the version in PRD2.CONFIG.
+
+Locate the following statement in CICSPROF.PROC...
+
+    ADDRESS RFS 'MKDIR' RESULT       /* Ensure default dir exists     */ 
+    
+Add the following lines after the above line...
+
+    /* AUTH section added to ensure External Security is used */            
+    AUTH: ROUT = 'AUTH'                                                     
+       ADDRESS REXXCICS 'CD'            /* Do not remove this command    */ 
+       ADDRESS RFS 'AUTH' RESULT 'SECURED'   /* Ensure dir XSEC      */     
+
+Note: This will add the External Security (XSEC) flag to the RFS folders that are created with the RFS "MKDIR" command.  You will also need to tailor the RFSLIB.CONFIG member to set "USEESM = 'YES'" and Assemble and LinkEdit versions of the CICSECX2 Security Exit.  This is described later in this document.
+
+#### Tailoring JCL Skeletons
 	
 The RFSLIB Application requires tailoring of JCL skeletions for use with the RFSLIB "Compile" feature.  One option is using the IBM provided Skeletons in ICCF Library 2 as the basis of the RFSLIB skeletons.  To do so you can do the following...
 	
@@ -616,17 +743,16 @@ Copy RFSCOMP.Z to PRD2.CONFIG as RFSCOMP.CONFIG and tailor this member as needed
 
 Note: RFSCOMP.Z ships pre-configured for supporting the VSE provided Assembler and COBOL for z/VSE skeleton names.
 
-### Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application
+#### Tailoring the RFSLIB.CONFIG member
 
-With a few minor changes to several of the CICS/REXX PROCs shipped with VSE you can provide some needed enhancements to how the RFSLIB application functions.
+To-be complete.
 
-These members include the following...
+#### Tailoring the CICS/REXX Security Exits for interfacing with an External Security Manager
 
-	CICESVR.PROC 
-	CICFPROF.PROC
-	CICSPROF.PROC
-	CICSTART.PROC
-	
+To-be complete.
+
+## APPENDIX
+
 ### Cross reference of VSE Library members provided with the RFSLIB application
 
 Members in PRD2.RFSLIB for the main "RFSLIB" application...
