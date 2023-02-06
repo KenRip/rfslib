@@ -891,6 +891,7 @@ Members in PRD2.RFSLIB for the main "RFSLIB" application...
     RFSLIBRP.PROC     - RFSLIB PROC which provides the "LIBRP" feature.
     RFSLIB3.PANSRC    - RFSLIB Panel Source for main RFSLIB screen (Panel for Model3 3270 terminal).
     RFSLIB4.PANSRC    - RFSLIB Panel Source for main RFSLIB screen (Panel for Model4 3270 terminal).
+    RFSPANLS.PROC     - RFSLIB PROC provided to import the PANSRC members provided in the default VSE sublibrary to an RFS directory.
     RFSPRINT.PROC     - RFSLIB PROC which provides the "PRINT" feature.
     RFSSKEL.PROC      - RFSLIB PROC which provides the "JCL Skeleton Substitution and JCL Generation" feature.
     RFSSUBMT.PROC     - RFSLIB PROC which provides the "SUBMIT" feature.
