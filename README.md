@@ -690,7 +690,7 @@ Note: This will add these PFKEY and Command Synonyms to the CICS/REXX FLST Trans
 
 ##### Tailoring CICSPROF.PROC 
 
-Note: This step is optional.  The changes made here are only necessary if you want to update the CICS/REXX EXEC PATH or if you intend to run the CICS/REXX environment and the RFSLIB application with integration to an External Security Manager (ESM) like the VSE Basic Security Manager or a 3rd Party ESM like Top Secret.
+**Note: This step is optional.**  The changes made here are only necessary if you want to update the CICS/REXX EXEC PATH or if you intend to run the CICS/REXX environment and the RFSLIB application with integration to an External Security Manager (ESM) like the VSE Basic Security Manager or a 3rd Party ESM like Top Secret.
 
 To update the CICS/REXX EXEC PATH you can perform the following update to the CICSPROF.PROC.  It is recommended that you first copy CICSPROF.PROC from PRD1.BASE to PRD2.CONFIG and update the version in PRD2.CONFIG.
 
