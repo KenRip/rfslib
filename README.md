@@ -20,8 +20,15 @@
   - [Command Line Commands](#command-line-commands)
 - [Installation](#installation)
   - [Installation Steps](#installation-steps)
-  - [Tailoring JCL Skeletons](#tailoring-jcl-skeletons)
-  - [Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application](#tailoring-existing-cicsrexx-procs-to-enhance-the-functionality-of-the-rfslib-application)
+   - [Restore RFSLIB VSE Library to your system](#restore-rfslib-vse-library-to-your-system)
+	- [Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application](#tailoring-existing-cicsrexx-procs-to-enhance-the-functionality-of-the-rfslib-application)
+	  - [Tailoring the CICSTART.PROC](#tailoring-the-cicstart.proc)
+	  - [Tailoring CICESVR.PROC](#tailoring-cicesvr.proc)
+	  - [Tailoring CICFPROF.PROC](#tailoring-cicfprof.proc)
+	  - [Tailoring CICSPROF.PROC](#tailoring-cicsprof.proc)
+    - [Tailoring JCL Skeletons](#tailoring-jcl-skeletons)
+    - [Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application](#tailoring-existing-cicsrexx-procs-to-enhance-the-functionality-of-the-rfslib-application)
+- [APPENDIX](#appendix)
   - [Cross reference of VSE Library members provided with the RFSLIB application](#cross-reference-of-vse-library-members-provided-with-the-rfslib-application)
 
 ## Introduction
