@@ -16,6 +16,9 @@
 	- [Installing RFSLIB Panels](#installing-rfslib-panels)
 	- [Tailoring the RFSLIB.CONFIG member](#tailoring-the-rfslibconfig-member)
 	- [Tailoring the CICS/REXX Security Exits for interfacing with an External Security Manager](#tailoring-the-cicsrexx-security-exits-for-interfacing-with-an-external-security-manager)
+	  - [Concerns with using the VSE supplied versions of these exits](#concerns-with-using-the-vse-supplied-versions-of-these-exits)
+	  - [Assembling the RFSLIB provided version of the security exits](#assembling-the-rfslib-provided-version-of-the-security-exits)
+	- [Tailoring your External Security Manager to support the RFSLIB application](#tailoring-your-external-security-manager-to-support-the-rfslib-application)
 - [Functionality](#functionality)
   - [TOP AREA](#top-area)
   - [COMMANE LINE AREA](#command-line-area)
@@ -315,7 +318,27 @@ This sets the default VSE sublibrary where the RFSLIB Help File is located.  The
 
 #### Tailoring the CICS/REXX Security Exits for interfacing with an External Security Manager
 
-To-be complete.
+There are two security exits provided with the CICS/REXX feature of VSE.  These are CICSECX1 and CICSECX2.
+
+**CICSSECX1 - CICS/REXX Library Member Access Authorization**
+
+This security exit provides access authorization for VSE Library Members by CICS/REXX.  CICS/RXX supports access to VSE Library Members using the RFS IMPORT and RFS EXPORT commands as well as the EDIT command with the "LIB" option.  This exit is ALWAYS invoked for these access attempts.
+
+**CICSSECX2 - CICS/REXX Rexx File System Access Authorization**
+
+This security exit provides access authorization for REXX File System (RFS) directories.  Only RFS directories can be secured, files withing directories cannot.  This exit is ONLY invoked for RFS directories that have been defined as "SECURED" using the RFS AUTH command.
+
+##### Concerns with using the VSE supplied versions of these exits
+
+The CICSECX1 and CICSECX2 security exits that ship with VSE are provided in PRD1.BASE in source (*.A members), object **.OBJ members) and executable (*.PHASE members).  The CICSSECX1 code that is provided is void of any External Security Manager (ESM) code (it simply set Register 15 to 0 and returns which would "allow" all VSE sublibrary access without any ESM checks.  Unfortunately that is NOT true of the CICSECX2 security exit.  Instead the CICSECX2 code provided does a query to to the ESM for a RESCLASS(REXRFS) which is NOT supported by the VSE Basic Security Manager.  Because of this if you were to use the CICS/REXX RFS AUTH command to change a CICS/REXX File System directory to "SECURED" (which enables external security and calls to the CICSECX2 security exit) ALL access to that folder would fail because the exit would ALWAYS return a non-zero value in Register 15.
+
+##### Assembling the RFSLIB provided version of the security exits
+
+Members CICSECX1.A and CICSECX2.A are provided in the PRD2.RFSLIB with the RFSLIB application.  If you would like to utilize these exits to interface to an External Security Manager (like the VSE Basic Security Manager) these exits will need to be CICS Translated, Assembled and LinkEdited.  These exits are standard CICS Command Level Assembler programs and can be assembled using the Interact Interface Dialogs and the C$$ASONL skeleton provided in ICCF library 2.  The target "Catalog" sublibrary should be either PRD2.CONFIG or the PRD2.RFSLIB as long as these libraries are in the LIBDEF search chain for your CICS partition ahead of the PRD1.BASE sublibrary. 
+
+#### Tailoring your External Security Manager to support the RFSLIB application
+
+<to be completed>
 
 ## Functionality
 
@@ -893,7 +916,7 @@ Members in PRD2.RFSLIB for the main "RFSLIB" application...
     RFSLIBRP.PROC     - RFSLIB PROC which provides the "LIBRP" feature.
     RFSLIB3.PANSRC    - RFSLIB Panel Source for main RFSLIB screen (Panel for Model3 3270 terminal).
     RFSLIB4.PANSRC    - RFSLIB Panel Source for main RFSLIB screen (Panel for Model4 3270 terminal).
-    RFSPANLS.PROC     - RFSLIB PROC provided to import the PANSRC members provided in the default VSE sublibrary to an RFS directory.
+	RFSPANLS.PROC     - RFSLIB PROC provided to import the PANSRC members provided in the default VSE sublibrary to an RFS directory.
     RFSPRINT.PROC     - RFSLIB PROC which provides the "PRINT" feature.
     RFSSKEL.PROC      - RFSLIB PROC which provides the "JCL Skeleton Substitution and JCL Generation" feature.
     RFSSUBMT.PROC     - RFSLIB PROC which provides the "SUBMIT" feature.
