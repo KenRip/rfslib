@@ -36,6 +36,12 @@
   - [Command Line Commands](#command-line-commands)
 - [APPENDIX](#appendix)
   - [Cross reference of VSE Library members provided with the RFSLIB application](#cross-reference-of-vse-library-members-provided-with-the-rfslib-application)
+  - [The RFSTOOL.PROC REXX/VSE Batch Utility](#the-rfstoolproc-rexxvse-batch-utility)
+    - [RFS Backups](#rfs-backups)
+    - [RFSTOOL.PROC Special Considerations](#rfstoolproc-special-considerations)
+    - [RFSTOOL.PROC JCL and Input Paramters](#rfstoolproc-jcl-and-input-paramters)
+      - [RFSTOOL.PROC Input Parameter Control Cards](#rfstoolproc-input-parameter-control-cards)
+      - [RFSTOOL.PROC Sample JCL](#rfstoolproc-sample-jcl)
 
 ## Introduction
 
@@ -1135,7 +1141,7 @@ If you would like to send your backup to tape you will need to restore the tape 
 
 [Return to TOC](#table-of-contents)
 
-#### RFSTOOL.PROC Special COnsiderations
+#### RFSTOOL.PROC Special Considerations
 
 The RFSTOOL.PROC supports restoring REXX File System directories and files while the CICS region owning these files it up and the RFS files are OPEN to CICS.  It does so by utilzing the VSAM-via-CICS Service (documented in the e-Business Connectors, User Guide).  In order to enable this RFSTOOL.PROC functionality the target CICS region must have the VSAM-via-CICS Service running.  This IS enabled by default in the VSE supplied CICS ICCF region but if you plan on hosting the RFSLIB application in another CICS region you would need to enable this support in that region.
 
