@@ -1290,7 +1290,7 @@ The MAKEDIR command is used to create new directories in the RFS File System.  I
 	
 'rfsdirtype' can be one of the following...    
 
-PRIVATE, SECURED, PUBLICR, or PUBLICW        
+    PRIVATE, SECURED, PUBLICR, or PUBLICW        
 
 The RFSTOOL.PROC defaults to 'PRIVATE'.  If you've enabled RFS File System security using the CICSECX2 security exit you may need to specify 'SECURED' to create the new directory with the XSEC setting to invoke External Security Manager (ESM) checks using the CICSECX2 security exit.
  
