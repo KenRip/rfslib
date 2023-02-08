@@ -50,9 +50,13 @@ Please note that the steps decribed in the section titled "Rename supplied Proce
 
 Please also note that the REXX DB2 Interface support described in the section titled "" of Appendix K in the CICS Transaction Server for VSE/ESA REXX Guide is NO longer available in z/VSE 6.1 and above.  CICS REXX support has been added to the z/VSE database connector DBCLI (Database Call Level Interface) as of z/VSE 6.2 (via PTF).
 
+[Return to TOC](#table-of-contents)
+
 ## Installation
 
 The first part of installing the RFSLIB application is ensuring you have met the prerequisite requirements discussed in the "Introduction" section of this document.  By default the configuration of the RFSLIB application is configured to use both an RFS "POOL1:" and RFS "POOL2:" file systems.  As part of the default CICS/REXX setup VSE ships with the necessary VSAM files defined to support both file systems.  As part of the process you will format both these file systems.  You will also tailor the CICSTART.PROC in PRD2.CONFIG (orignally shipped in PRD1.BASE).  Tailoring should include updating the "AUTHUSER RCUSER" statement to add any additional userids that would be "authorized" users in the CICS/REXX environment.  You will also perform steps to generate the supplied CICS/REXX online help files (VSE default location is POOL2:\BOOK).  Finally you will run the installation verification PROC called CICIVP1 to verify your CICS/REXX environment is working properly.
+
+[Return to TOC](#table-of-contents)
 
 ### Installation Steps
 
@@ -78,6 +82,8 @@ For the actual installation of the RFSLIB application there is a provided VSE Li
 
 Note: This JCL may require tailoring for your environment and at a minumum the "cua" of the VSE VTAPE device must be specified.
 
+[Return to TOC](#table-of-contents)
+
 #### Tailoring existing CICS/REXX PROCs to enhance the functionality of the RFSLIB application
 
 Once the VSE library is installed there are a number of steps to be completed to tailor the RFSLIB application for you environment.  With a few minor changes to several of the CICS/REXX PROCs shipped with VSE you can provide some needed enhancements to how the RFSLIB application functions.
@@ -88,6 +94,8 @@ These members include the following...
 	CICESVR.PROC 
 	CICFPROF.PROC
 	CICSPROF.PROC
+
+[Return to TOC](#table-of-contents)
 
 ##### Tailoring the CICSTART.PROC
 
@@ -120,6 +128,8 @@ These would now look something like this...
     'EXECLOAD PROCLIB CICESVR'             /* $V1C    OW20371,    OW06629*/
     'EXECLOAD PROCLIB CICEPROF'            /* $V1C                OW20371*/
 
+[Return to TOC](#table-of-contents)
+
 ##### Tailoring CICESVR.PROC
 
 To eliminate an annoying "flash" of an unformatted 3270 screen when exiting the CICS/REXX Editor and returning to the RFSLIB application make the following change to the CICESVR.PROC.  It is recommended that you first copy CICESVR.PROC from PRD1.BASE to PRD2.CONFIG and update the version in PRD2.CONFIG.
@@ -136,6 +146,8 @@ Change them to the following...
 
 Note: this will have no adverse effect of the functionality of CICS/REXX outside the RFSLIB application.
 
+[Return to TOC](#table-of-contents)
+
 ##### Tailoring CICFPROF.PROC
 
 To add some enhancements to the CICS/REXX FLST transaction you can perform the following update to the CICFPROF.PROC.  It is recommended that you first copy CICFPROF.PROC from PRD1.BASE to PRD2.CONFIG and update the version in PRD2.CONFIG.
@@ -150,6 +162,8 @@ Add the following lines anywhere between the "ADDRESS FLSTSVR" and "ADDRESS REXX
     'SYNONYM SUB SUBMIT'       
 
 Note: This will add these PFKEY and Command Synonyms to the CICS/REXX FLST Transaction.  This will have no adverse effect of the functionality of CICS/REXX outside the RFSLIB application.
+
+[Return to TOC](#table-of-contents)
 
 ##### Tailoring CICSPROF.PROC 
 
@@ -177,10 +191,12 @@ Add the following lines after the above line...
 
     /* AUTH section added to ensure External Security is used */            
     AUTH: ROUT = 'AUTH'                                                     
-       ADDRESS REXXCICS 'CD'            /* Do not remove this command    */ 
-       ADDRESS RFS 'AUTH' RESULT 'SECURED'   /* Ensure dir XSEC      */     
+    ADDRESS REXXCICS 'CD'            /* Do not remove this command    */ 
+    ADDRESS RFS 'AUTH' RESULT 'SECURED'   /* Ensure dir XSEC      */     
 
 Note: This will add the External Security (XSEC) flag to the RFS folders that are created with the RFS "MKDIR" command.  You will also need to tailor the RFSLIB.CONFIG member to set "USEESM = 'YES'" and Assemble and LinkEdit versions of the CICSECX2 Security Exit.  This is described later in this document.
+
+[Return to TOC](#table-of-contents)
 
 #### Tailoring JCL Skeletons
 	
@@ -206,6 +222,8 @@ Copy RFSCOMP.Z to PRD2.CONFIG as RFSCOMP.CONFIG and tailor this member as needed
 
 Note: RFSCOMP.Z ships pre-configured for supporting the VSE provided Assembler and COBOL for z/VSE skeleton names.
 
+[Return to TOC](#table-of-contents)
+
 #### Installing RFSLIB Panels
 
 The CICS/REXX Panel Facility relies on the panels being installed in an RFS File System directory.  By default the RFSLIB application uses the POOL2:\PANELS directory for this (although this could be modified in the RFSLIB.CONFIG member described in the next section).
@@ -217,7 +235,9 @@ The RFSLIB "PANSRC" members are included in the PRD2.RFSLIB sublibrary but need 
 If the location is another folder other than POOL2:\PANELS you can override the default location by executing the command with the input paramter of the alternate location like this...
 
     CALL RFSPANLS.PROC 'POOL1:\RFSLPANS'
-	
+
+[Return to TOC](#table-of-contents)
+
 #### Tailoring the RFSLIB.CONFIG member
 
 The default RFSLIB.CONFIG member is included in the PRD2.RFSLIB sublibrary as member RFSLIB.Z.  Copy this memebr to PRD2.CONFIG as RFSLIB.CONFIG and tailor it to meet you needs.
@@ -317,6 +337,8 @@ This sets the default Skeleton VSE sublibrary member type for the RFSLIB SKELETO
 
 This sets the default VSE sublibrary where the RFSLIB Help File is located.  The default value is 'PRD2.RFSLIB'.  The value must be contained in single quotes as the default value above shows.
 
+[Return to TOC](#table-of-contents)
+
 #### Tailoring the CICS/REXX Security Exits for interfacing with an External Security Manager
 
 There are two security exits provided with the CICS/REXX feature of VSE.  These are CICSECX1 and CICSECX2.
@@ -329,13 +351,19 @@ This security exit provides access authorization for VSE Library Members by CICS
 
 This security exit provides access authorization for REXX File System (RFS) directories.  Only RFS directories can be secured, files withing directories cannot.  This exit is ONLY invoked for RFS directories that have been defined as "SECURED" using the RFS AUTH command.
 
+[Return to TOC](#table-of-contents)
+
 ##### Concerns with using the VSE supplied versions of these exits
 
 The CICSECX1 and CICSECX2 security exits that ship with VSE are provided in PRD1.BASE in source (*.A members), object **.OBJ members) and executable (*.PHASE members).  The CICSSECX1 code that is provided is void of any External Security Manager (ESM) code (it simply set Register 15 to 0 and returns which would "allow" all VSE sublibrary access without any ESM checks.  Unfortunately that is NOT true of the CICSECX2 security exit.  Instead the CICSECX2 code provided does a query to to the ESM for a RESCLASS(REXRFS) which is NOT supported by the VSE Basic Security Manager.  Because of this if you were to use the CICS/REXX RFS AUTH command to change a CICS/REXX File System directory to "SECURED" (which enables external security and calls to the CICSECX2 security exit) ALL access to that folder would fail because the exit would ALWAYS return a non-zero value in Register 15.
 
+[Return to TOC](#table-of-contents)
+
 ##### Assembling the RFSLIB provided version of the security exits
 
 Members CICSECX1.A and CICSECX2.A are provided in the PRD2.RFSLIB with the RFSLIB application.  If you would like to utilize these exits to interface to an External Security Manager (like the VSE Basic Security Manager) these exits will need to be CICS Translated, Assembled and LinkEdited.  These exits are standard CICS Command Level Assembler programs and can be assembled using the Interact Interface Dialogs and the C$$ASONL skeleton provided in ICCF library 2.  The target "Catalog" sublibrary should be either PRD2.CONFIG or the PRD2.RFSLIB as long as these libraries are in the LIBDEF search chain for your CICS partition ahead of the PRD1.BASE sublibrary. 
+
+[Return to TOC](#table-of-contents)
 
 #### Tailoring your External Security Manager to support the RFSLIB application
 
@@ -361,6 +389,8 @@ Optionally you can also add the following RESCLASS(FACILITY) entries to your ESM
     CICSREXX.SUBMIT         - Controls the use of the SUBMIT command   
     CICSREXX.SUBMIT.JCLID   - Provides addition control over including the "// ID" within the submitted JCL.   
     CICSREXX.SUBMIT.JOBCARD - Provides additional control over the use of a custom JECL JOBCARD within the submitted JCL.   
+
+[Return to TOC](#table-of-contents)
 
 ##### Additional ESM Tailoring for the CICSECX1 and CICSECX2 security exits
 
@@ -393,11 +423,15 @@ Here's some more examples...
 
 **NOTE:** External security only checks for directory access, not member level access.
 
+[Return to TOC](#table-of-contents)
+
 ## Functionality
 
 The RFSLIB main screen is a member listing and selection screen similar to that provided by IBM in the z/VSE Interactive Interface for accessing an ICCF Library.  This main screen provides a directory listing of the contents of the current CICS/REXX File System (or RFS) directory.  From this directory listing the user can select members for viewing and editing as well as several other functions.  In addition a Command Line area is available for accessing specific commands which have been provided to add functions and features to the CICS/REXX environment.
 
 The screen is broken into several areas.  These are...
+
+[Return to TOC](#table-of-contents)
 
 ### TOP AREA
 
@@ -445,15 +479,21 @@ This option provides the user the ability to perform one of the available progra
 9=DISPLAY
 This option allows the user to select the member for display.  The dislay function provides all the functions of the CICS/REXX Full Screen Editor but does not allow the user to save the current file.
 
+[Return to TOC](#table-of-contents)
+
 ### COMMANE LINE AREA
 
 The Command Line area allows the user to enter available commands for execution.  More information on the commands available can be obtained by entering "HELP COMMANDS" in the Command Line area.
+
+[Return to TOC](#table-of-contents)
 
 ### MAIN DIRECTORY LIST
 
 The main directory list area shows the list of files and directories found in the current RFS directory.  Each line in this area contains the FILENAME and optional FILETYPE of each file or directory along with the DATE and TIME the file or directory was last updated and the SIZE of the file in records.
 
 Please note that the directory listing can be sorted in several different ways.  The current sort option and order is displayed below the column heading area. More information on how to control the sort order can be found below in the PF Key descriptions.
+
+[Return to TOC](#table-of-contents)
 
 ### PF KEY LABEL AREA
 
@@ -488,9 +528,13 @@ Sorts the directory listing base on file SIZE. When this key is pressed it will 
 
 Please also note that the PF5 key is available and will retrieve the last command entered in the Command Line area at the top of the screen.  The last 25 commands entered are retained.  Hitting the PF5 key multiple times will retreive the next oldest command entered from the command history.
 
+[Return to TOC](#table-of-contents)
+
 ### FILENAME PREFIX AREA
 
 The FILENAME PREFIX selection can be used to limit the displayed directory listing to only the files and directories which start with the specified PREFIX. Enter the desired PREFIX and hit PF2 to REFRESH the display.
+
+[Return to TOC](#table-of-contents)
 
 ## RFSLIB Commands
 
@@ -558,6 +602,8 @@ The CONFIG command can be used to directly edit the PRD2.CONFIG(RFSLIB.CONFIG) m
 
 Please note that this command is typically restricted to the System Administrator or Security Administrator.
 
+[Return to TOC](#table-of-contents)
+
 ## CICS/REXX Full Screen Editor
 
 ### Overview
@@ -567,6 +613,8 @@ The CICS/REXX Full Screen Editor is patterned after VM/CMS XEDIT. The editor is 
 The CICS/REXX editor includes several prefix commands (for example: C, CC, M, MM, B, A, F, P) in common with the XEDIT editor.
 
 While in an editor session, commands entered on the command line can be chained by placing a ";" between each command. Support is also provided for macros written in REXX. This lets you customize editor settings with a profile exec or add new commandes to the editor.
+
+[Return to TOC](#table-of-contents)
 
 ### Screen Format
 
@@ -583,9 +631,13 @@ The line which starts with "COMMAND ===>" is the Command Line where Editor comma
 
 The Data Lines area of the screen is used to display and edit your data. Each line in the Data Area contains a The Data Lines area of the screen is used to display and edit your data. Each line in the Data Area contains a "prefix area" which typically displays the line number of each data line. Prefix Commands may be entered in this "prefix area".
 
+[Return to TOC](#table-of-contents)
+
 ### Prefix Commands
 
 Several prefix commands are provided by the Editor. These commands are entered in the prefix area and give you the ability to copy, move, delete and replicate lines on either an individual or a consecutive block basis.
+
+[Return to TOC](#table-of-contents)
 
 ### Individual Line Commands
 
@@ -600,6 +652,8 @@ The folloing commands work with individual lines and consist of one character...
     '"' - Synonym for replicate
 
 When you enter one of these commands in the prefix area of a line the command performs its respective function on that line. You can also append a number to the end of the prefix command. This acts as a replication factor. If number "5" is appended to the "I" command five lines are inserted into the file.
+
+[Return to TOC](#table-of-contents)
 
 ### Consecutive Block Commands
 
@@ -616,6 +670,8 @@ The following commands work with consecutive blocks of lines and consist of two 
 Block commands are processed in pairs. You place one command in the prefix area of the first line of the block and place the same command in the prefix area of the last line of the block.  For example to delete a block of lines place a "DD" in the prefix area of the first line of the block and a "DD" in the prefix area of the last line in the block. If this was done on lines 00001 and 00005 it would delete line 00001 through 00005 inclusive.  The only block prefix command that
 allows a replication factor is the replicate command ('RR' or '""').  The replication factor must be specified with the first 'RR' replication command.
 
+[Return to TOC](#table-of-contents)
+
 ### Destination Commands
 
 The following commands are called destination commands...
@@ -626,6 +682,8 @@ The following commands are called destination commands...
     'P' - Preceding
 
 These commands are used in conjunction with the copy and move commands (both individual and consecutive block) to specify the placement of the resulting copy or move function.
+
+[Return to TOC](#table-of-contents)
 
 ### Command Line Commands
 
@@ -953,6 +1011,8 @@ More information on the CICS/REXX Full screen Editor can be found in Chapter 18 
 IBM CICS Transaction Server for VSE/ESA REXX Guide.
 IBM Publication Number SC34-5764-01.
 
+[Return to TOC](#table-of-contents)
+
 ## APPENDIX
 
 ### Cross reference of VSE Library members provided with the RFSLIB application
@@ -1023,3 +1083,5 @@ For CICS/REXX Security Features (security over the RFS File System and access to
 
     CICSECX1.A
     CICSECX2.A
+
+[Return to TOC](#table-of-contents)
