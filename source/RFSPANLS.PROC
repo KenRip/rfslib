@@ -1,0 +1,48 @@
+/*********************************************************************/
+/* RFSLIB by Kenneth Ripple                                          */
+/*            https://github.com/KenRip/rfslib/                      */
+/*                                                                   */
+/* Module: RFSPANLS.PROC                                             */
+/*********************************************************************/
+/* Exec to IMPORT a RFSLIB PANSRC members from PRD2.RFSLIB to        */
+/* target PANELS folder (default is POOL2:\PANELS).                  */
+/* TRACE ?ALL */
+ARG rfsdir
+IF LENGTH(rfsdir) <> 0 THEN DO
+  targetdir = rfsdir
+END
+ELSE DO
+  targetdir = 'POOL2:\PANELS'
+END
+ADDRESS REXXCICS 'CD 'targetdir
+SAY 'Importing RFSCOMPD.PANSRC to ' targetdir
+targetrfs = targetdir || '\RFSCOMPD.PANSRC'
+CALL RFSLIBRP PRD2.RFSLIB RFSCOMPD.PANSRC RFSCOMPD.PANSRC
+SAY 'Importing RFSHELP.PANSRC to ' targetrfs
+targetrfs = targetdir || '\RFSHELP.PANSRC'
+CALL RFSLIBRP PRD2.RFSLIB RFSHELP.PANSRC RFSHELP.PANSRC
+SAY 'Importing RFSHELP3.PANSRC to ' targetrfs
+targetrfs = targetdir || '\RFSHELP3.PANSRC'
+CALL RFSLIBRP PRD2.RFSLIB RFSHELP3.PANSRC RFSHELP3.PANSRC
+SAY 'Importing RFSHELP4.PANSRC to ' targetrfs
+targetrfs = targetdir || '\RFSHELP4.PANSRC'
+CALL RFSLIBRP PRD2.RFSLIB RFSHELP4.PANSRC RFSHELP4.PANSRC
+SAY 'Importing RFSLIB.PANSRC to ' targetrfs
+targetrfs = targetdir || '\RFSLIB.PANSRC'
+CALL RFSLIBRP PRD2.RFSLIB RFSLIB.PANSRC RFSLIB.PANSRC
+SAY 'Importing RFSLIBA.PANSRC to ' targetrfs
+targetrfs = targetdir || '\RFSLIBA.PANSRC'
+CALL RFSLIBRP PRD2.RFSLIB RFSLIBA.PANSRC RFSLIBA.PANSRC
+SAY 'Importing RFSLIBC.PANSRC to ' targetrfs
+targetrfs = targetdir || '\RFSLIBC.PANSRC'
+CALL RFSLIBRP PRD2.RFSLIB RFSLIBC.PANSRC RFSLIBC.PANSRC
+SAY 'Importing RFSLIBF.PANSRC to ' targetrfs
+targetrfs = targetdir || '\RFSLIBF.PANSRC'
+CALL RFSLIBRP PRD2.RFSLIB RFSLIBF.PANSRC RFSLIBF.PANSRC
+SAY 'Importing RFSLIB3.PANSRC to ' targetrfs
+targetrfs = targetdir || '\RFSLIB3.PANSRC'
+CALL RFSLIBRP PRD2.RFSLIB RFSLIB3.PANSRC RFSLIB3.PANSRC
+SAY 'Importing RFSLIB4.PANSRC to ' targetrfs
+targetrfs = targetdir || '\RFSLIB4.PANSRC'
+CALL RFSLIBRP PRD2.RFSLIB RFSLIB4.PANSRC RFSLIB4.PANSRC
+RETURN 0
