@@ -390,6 +390,8 @@ Optionally you can also add the following RESCLASS(FACILITY) entries to your ESM
     CICSREXX.SUBMIT.JCLID   - Provides addition control over including the "// ID" within the submitted JCL.   
     CICSREXX.SUBMIT.JOBCARD - Provides additional control over the use of a custom JECL JOBCARD within the submitted JCL.   
 
+**Note:** To enable these optionally ESM security checks replace the AUTHFUNC.PROC in PRD2.RFSLIB with the AUTHFUNC.Z member (i.e. rename AUTHFUNC.PROC to AUTHFUNC.PROCO and rename AUTHFUNC.Z to AUTHFUNC.PROC).  This will activate the interface to an External Security Manager to control access to the SUBMIT, PRINT, LIBRP and LIBRC PROCs.
+
 [Return to TOC](#table-of-contents)
 
 ##### Additional ESM Tailoring for the CICSECX1 and CICSECX2 security exits
