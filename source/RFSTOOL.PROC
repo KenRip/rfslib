@@ -110,7 +110,7 @@
 /*      \dirlevel1\dirlevel2 etc.                                    */
 /*    - rfsdirtype can be one of the following...                    */
 /*      PRIVATE, SECURED, PUBLICR, or PUBLICW                        */
-/*               =======                                             */
+/*      =======                                                      */
 /* DELETEDIR rfsdirid                                                */
 /* DELETEFILE rfsfileid                                              */
 /*                                                                   */
@@ -1324,7 +1324,7 @@ ELSE DO
       mdtype = 'W'
     END
     OTHERWISE
-    mdtype = 'S'
+    mdtype = 'P'
   END
   mdpool = LEFT(' ',8,' ')
   mdrecords.1 = mdkey || mdlow8 || mddate || mdtime || mduser
