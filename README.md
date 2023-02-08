@@ -19,6 +19,7 @@
 	  - [Concerns with using the VSE supplied versions of these exits](#concerns-with-using-the-vse-supplied-versions-of-these-exits)
 	  - [Assembling the RFSLIB provided version of the security exits](#assembling-the-rfslib-provided-version-of-the-security-exits)
 	- [Tailoring your External Security Manager to support the RFSLIB application](#tailoring-your-external-security-manager-to-support-the-rfslib-application)
+	  - [Additional ESM Tailoring for the CICSECX1 and CICSECX2 security exits](#additional-esm-tailoring-for-the-cicsecx1-and-cicsecx2-security-exits)
 - [Functionality](#functionality)
   - [TOP AREA](#top-area)
   - [COMMANE LINE AREA](#command-line-area)
@@ -338,7 +339,59 @@ Members CICSECX1.A and CICSECX2.A are provided in the PRD2.RFSLIB with the RFSLI
 
 #### Tailoring your External Security Manager to support the RFSLIB application
 
-<to be completed>
+If you intend to enable the RFSLIB application's External Security Manager (ESM) interface (by setting USEESM = 'YES' in the RFSLIB.CONFIG member) you will need to first add the following RESCLASS(FACILITY) entries in your ESM...
+
+    RFSLIB.CD             - Controls the use of the CD command      
+    RFSLIB.COMPILE        - Controls access to the "Compile" function 
+    RFSLIB.CONFIG         - Controls the use of the CONFIG command
+    RFSLIB.EXEC           - Controls the use of the EXEC command    
+    RFSLIB.ICCFP          - Controls the use of the ICCFP command   
+    RFSLIB.LIBRC          - Controls the use of the ICCFC command   
+    RFSLIB.PRINT          - Controls the use of the PRINT command
+    RFSLIB.RESET          - Controls the use of the RESET command
+    RFSLIB.SUBMIT         - Controls the use of the SUBMIT command
+    RFSLIB.SUBMIT.JCLID   - Provides addition control over including the "// ID" within the submitted JCL.
+    RFSLIB.SUBMIT.JOBCARD - Provides additional control over the use of a custom JECL JOBCARD within the submitted JCL.
+
+Optionally you can also add the following RESCLASS(FACILITY) entries to your ESM if you would like to enable the ESM interfaces for the the additional features and functions include with the RFSLIB application for use outside the application...
+
+    CICSREXX.LIBRC          - Controls the use of the ICCFP command              
+    CICSREXX.LIBRP          - Controls the use of the ICCFC command   
+    CICSREXX.PRINT          - Controls the use of the PRINT command   
+    CICSREXX.SUBMIT         - Controls the use of the SUBMIT command   
+    CICSREXX.SUBMIT.JCLID   - Provides addition control over including the "// ID" within the submitted JCL.   
+    CICSREXX.SUBMIT.JOBCARD - Provides additional control over the use of a custom JECL JOBCARD within the submitted JCL.   
+
+##### Additional ESM Tailoring for the CICSECX1 and CICSECX2 security exits
+
+If you intend to utilize the custom CICSECX1 and CICSECX2 security exits provided with the RFSLIB application you will also need to define you REXX File System (RFS) security to your External Security Manager (ESM) as RESCLASS(FACILITY) entires.
+
+Create your RESCLASS(FACILITY) entries as follows...
+
+    Prefix "RFS-"
+    RFS POOLID
+    Replace ":" with "-"
+    Replace all "\" with ">"
+
+The "-" and ">" are used in place of the ":" and "\" characters because the VSE Basic Security Manager does not support the ":" and "\" characters.
+
+Here's and example...
+
+    POOL1:\USERS\KRIP
+	
+The above would need a RECLASS(FACILITY) profile as follows...
+
+    RFS-POOL1->USERS>KRIP
+
+These are limited to 39 characters so only high level directories can be secured using the External Security Exit CICSECX2.
+
+Here's some more examples...
+
+    RFS-POOL1->USERS>KRIP>SOURCE
+    RFS-POOL1->USERS>KRIP
+    RFS-POOL1->USERS>KRIP.SOURCE           <----- Example of directory name with dot in it.
+
+**NOTE:** External security only checks for directory access, not member level access.
 
 ## Functionality
 
@@ -494,6 +547,14 @@ Where "xxxxxxxx" is the name of the CICS/REXX EXEC or PROCedure.  The EXEC or PR
 The RFSLIB product adds support for RFS filename level enqueue / dequeue support.  This prevents users from editing the same member at the same time.  Under certain circumstances (i.e. disconnecting your terminal while editing an RFS file) the enqueue lock on an RFS file can be left in the "locked" state.  The RESET command can be used to release the RFS file enqueue lock.  The format of the command is as follows...
 
     RESET rfsfileid
+
+Please note that this command is typically restricted to the System Administrator or Security Administrator.
+
+**CONFIG**
+
+The CONFIG command can be used to directly edit the PRD2.CONFIG(RFSLIB.CONFIG) member in the CICS/REXX Full Screen Editor.  The format of the command is as follows...
+
+    CONFIG
 
 Please note that this command is typically restricted to the System Administrator or Security Administrator.
 
