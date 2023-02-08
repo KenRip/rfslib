@@ -80,7 +80,7 @@ For the actual installation of the RFSLIB application there is a provided VSE Li
     /&                                                         
     * $$ EOJ                                                   
 
-Note: This JCL may require tailoring for your environment and at a minumum the "cua" of the VSE VTAPE device must be specified.
+Note: This JCL may require tailoring for your environment and at a minumum the "cua" of the VSE VTAPE device must be specified.  The AWS Virtual Tape file is provided in the 'install' folder.
 
 [Return to TOC](#table-of-contents)
 
@@ -1083,7 +1083,231 @@ These members in PRD2.RFSLIB will be copied to PRD2.CONFIG and control the confi
 
 For CICS/REXX Security Features (security over the RFS File System and access to VSE Library members) you will need to CICS Translate, Assemble and Link tailored versions of the CICSECX1 and CICSECX2 Security Exits.  Sample sourcecode for these is provided in PRD2.RFSLIB in the following members...
 
-    CICSECX1.A
-    CICSECX2.A
+    CICSECX1.A        - Taliored version of the CICSECX2 exit which interfaces with the ESM using the RESCLASS(FACILITY) profiles.
+    CICSECX1.PHASE    - Dummy version of the CICSECX1 exit which simply set Reg15 to 0 and returns which 'allows' all requests.
+	CICSECX2.A        - Taliored version of the CICSECX2 exit which interfaces with the ESM using the RESCLASS(FACILITY) profiles.
+    CICSECX2.PHASE    - Dummy version of the CICSECX2 exit which simply set Reg15 to 0 and returns which 'allows' all requests.
+
+[Return to TOC](#table-of-contents)
+
+### The RFSTOOL.PROC REXX/VSE Batch Utility
+
+The RFSTOOL.PROC is included with the RFSLIB application in the PRD2.RFSLIB sublibrary.  This REXX procedure is used to process CICS/Rexx RFS files and directories from a batch job.  The tool can perform the following functions from a batch job...
+
+    DIRECTORY   - Produces a directory listing of an RFS File System directory
+    RESTOREFILE - Restores a file from a backup (backup must be in a specific format in a SAM disk file - See details below)
+    RESTOREDIR  - Restores a directory and all files within from a backup (backup must be in a specific format in a SAM disk file - See details below)
+    MAKEDIR     - Creates a new directory in the RFS File System
+    DELETEDIR   - Deletes a directory from the RFS File System
+    DELETEFILE  - Deletes a file from the RFS File System
+
+[Return to TOC](#table-of-contents)
+
+#### RFS Backups
+
+The backup files need to be created using the IDCAMS REPRO method.  Sample JCL for this can be seen below but would most likely need to be taiored to your specific VSE environment (i.e. for specific EXTENT information or for a 3rd party disk management solution).
+
+    // DLBL RFSDIR1,'',,VSAM
+	// DLBL DISKOUT,'RFSDIR1.DISK.BACKUP' 
+    // EXTENT SYS001                      
+    // EXEC   IDCAMS,SIZE=AUTO            
+      REPRO  INFILE (RFSDIR1)  -      
+            OUTFILE (DISKOUT   -      
+            ENVIRONMENT        -      
+               (RECFM(VB)      -      
+                BLKSZ(25000)))      
+    /*				
+	// DLBL RFSPOL1,'',,VSAM
+    // DLBL DISKOUT,'RFSPOL1.FILE01.DISK.BACKUP' 
+    // EXTENT SYS001                      
+    // EXEC   IDCAMS,SIZE=AUTO            
+      REPRO  INFILE (RFSPOL1)  -      
+            OUTFILE (DISKOUT   -      
+            ENVIRONMENT        -      
+               (RECFM(VB)      -      
+                BLKSZ(25000)))      
+
+Please note that each REXX File System (RFS) Pool is made up of a pool directory file (RFSDIR1 above) and at least one pool data file (RFSPOL1 above).  To insure that your backups have data integrity you should backup the VSAM clusters that make up the Pool together and if possible when no update activity is taking place.
+
+Please also note that the RECFM(VB) and BLKSIZE(25000) are required for the RFSTOOL.PROC to be able to process the backup files.
+
+If you would like to send your backup to tape you will need to restore the tape backup to SAM disk files before processing and restores with the RFSTOOL.PROC.  The RFSTOOL.PROC does not support reading the backups from tape.
+
+[Return to TOC](#table-of-contents)
+
+#### RFSTOOL.PROC Special COnsiderations
+
+The RFSTOOL.PROC supports restoring REXX File System directories and files while the CICS region owning these files it up and the RFS files are OPEN to CICS.  It does so by utilzing the VSAM-via-CICS Service (documented in the e-Business Connectors, User Guide).  In order to enable this RFSTOOL.PROC functionality the target CICS region must have the VSAM-via-CICS Service running.  This IS enabled by default in the VSE supplied CICS ICCF region but if you plan on hosting the RFSLIB application in another CICS region you would need to enable this support in that region.
+
+The following CICS Resource definitions are required (supplied in the VSESPG RDO Group) to do so...
+                                                                 
+      NAME     TYPE                                              
+      ====     ====                                              
+      IESXACT1 PROFILE                                           
+      IESCVMIR PROGRAM                                           
+      IESCVSRV PROGRAM                                           
+      IESCVSTA PROGRAM                                           
+      IESCVSTI PROGRAM                                           
+      IESCVSTP PROGRAM                                           
+      ICVA     TRANSACTION                                       
+      ICVM     TRANSACTION                                       
+      ICVP     TRANSACTION                                       
+      ICVS     TRANSACTION                                       
+
+You would also need to include the ICVA transaction in your CICS region startup.  Please see the e-Business Connectors, User Guide for more details.
+
+[Return to TOC](#table-of-contents)
+
+#### RFSTOOL.PROC JCL and Input Paramters
+
+The JCL and Input Cards for the RFSTOOL PROC are as follows...
+
+    // DLBL DIRIN,'RFSDIR1.REPRO.BACKUP'           
+    // EXTENT ,VOL001,,,10000,250                  
+    // ASSGN SYS004,xxx                            
+    // DLBL POLIN1,'RFSPOL1.FILE01.REPRO.BACKUP'   
+    // EXTENT ,VOL001,,,10000,250                  
+    // ASSGN SYS005,xxx                            
+    // DLBL POLIN2,'RFSPOL1.FILE02.REPRO.BACKUP'   
+    // EXTENT ,VOL001,,,10000,250                  
+    // ASSGN SYS006,xxx                            
+    // DLBL POLIN3,'RFSPOL1.FILE03.REPRO.BACKUP'   
+    // EXTENT ,VOL001,,,10000,250                  
+    // ASSGN SYS007,xxx                            
+    // DLBL POLIN4,'RFSPOL1.FILE04.REPRO.BACKUP'   
+    // EXTENT ,VOL001,,,10000,250                  
+    // ASSGN SYS008,xxx                            
+    // EXEC REXX=RFSTOOL                           
+    <INPUT CONTROL CARDS GO HERE>                  
+    /*    
+	
+Again the specifc DLBL dataset names and EXTENT information will need to be tailored to you specific requirements.
+
+The RFSTOOL.PROC can support up to four (4) Pool data files as part of a single RFS File System.  As the CICS/REXX support ships with VSE the two pools (POOL2 and POOL2) only include a single pool data file each.  In this case you wouldn't need the POLIN2 - POLIN4 related DLBL, EXTENT and ASSGN statements.
+
+[Return to TOC](#table-of-contents)
+
+##### RFSTOOL.PROC Input Parameter Control Cards
+
+The supported input paramter control cards are as follows...
+
+**CICSREGION**
+
+This specifies the target CICS Region APPLID where the target RFS files are located (used during RESTORE processing).  The format of the control card is...
+
+    CICSREGION aaaaaaaa
+
+Where "aaaaaaaa" is the APPLID of the target CICS region.
+
+**POOLIN**
+
+This specifies the input SAM backup files to be used in the RFSTOOL.PROC processing.  The format of the control card is...
+
+    POOLIN dirid poolfile1 poolfile2 poolfile3 poolfile4
+
+"dirid" is the RFSDIR name.
+"poolfile1" is the RFS Pool data file 1 file name.
+"poolfile2" is the RFS Pool data file 2 file name.
+"poolfile3" is the RFS Pool data file 3 file name.
+"poolfile4" is the RFS Pool data file 4 file name.
+
+Note: The name values need to be the original CICS FILE (FCT) names that the RFS files are defined to the CICS Region as.  The REXX File System utilizes these names inside the records of the VSAM clusters as the part of the linking records between the RFSDIR records and the Pool data file records.  It is important that the names here match the CICS FILE (FCT) names in the CICS region or the RFSTOOL.PROC processing would fail. 
+
+**POOLOUT**
+
+This specifies the output RFS File System files to be used in the RFSTOOL.PROC processing.  The format of the control card is...
+
+    POOLOUT dirid poolfile1 poolfile2 poolfile3 poolfile4
+
+"dirid" is the RFSDIR name.
+"poolfile1" is the RFS Pool data file 1 file name.
+"poolfile2" is the RFS Pool data file 2 file name.
+"poolfile3" is the RFS Pool data file 3 file name.
+"poolfile4" is the RFS Pool data file 4 file name.
+
+Note: The name values need to be the CICS FILE (FCT) names that the RFS files are defined to the CICS Region as.  The REXX File System utilizes these names inside the records of the VSAM clusters as the part of the linking records between the RFSDIR records and the Pool data file records.  It is important that the names here match the CICS FILE (FCT) names in the CICS region or the RFSTOOL.PROC processing would fail. 
+
+**REPLACE**
+
+This specifies if the target RFS directory of file is to be replaced during RESTOREDIR or RESTOREFILE processing.  The format of the control card is...
+
+    REPLACE YES|NO
+
+
+**DIRECTORY** 
+
+This command produces a directory listing of the specified RFS File System directory.  It can produce directory listing from the POOLIN or POOLOUT files.  The format of the control card is...
+
+    DIRECTORY rfsdirid **SHORT**|FULL **POOLIN**|POOLOUT
+
+'rfsdirid" is the RFS File System directory within the specified pool.  It should not include the "POOLx:" value.  It should be in the following format...
+
+    - rfsdirid should be in the following format...               
+      \dirlevel1\dirlevel2 etc.                                   
+      \xxxxx\yyy*                                                 
+    - If "*" is specified as a wildcard it can only be used at the end of the parameter.  i.e. \USERS\A*                       
+
+'SHORT|FULL' produces either a breif listing (SHORT) of the directory or a detailed listing (FULL).  The default is 'SHORT'
+'POOLIN|POOLOUT' indicates whether the directory listing is produced from the POOLIN SAM backup files or from the target RFS file System specified on POOLOUT.
+
+**RESTOREFILE**
+
+The RESTOREFILE function is used to restore files from the POOLIN SAM backup files to the target RFS File System specified on POOLOUT above.  The format of the control card is...
+
+    RESTOREFILE rfsfileid (-)
+             TO rfsfileid    
+
+Note that the 'TO' option is not required.  If omitted the file is restored to it's original location (from the SAM backup file).  If specified it can override the target location and filename.
+
+**RESTOREDIR** 
+
+The RESTOREDIR function is used to restore directories and all the files contained in the directory from the POOLIN SAM backup files to the target RFS File System specified on POOLOUT above.  The format of the control card is...
+
+    RESTOREDIR rfsdirid (-)
+             TO rfsdirid    
+
+Note that the 'TO' option is not required.  If omitted the file is restored to it's original location (from the SAM backup file).  If specified it can override the target directory location.
+
+**MAKEDIR**    
+
+The MAKEDIR command is used to create new directories in the RFS File System.  It only applies to the POOLOUT target RFS File System.  The format of the control card is...
+
+    MAKEDIR rfsdirid rfsdirtype
+	
+'rfsdirid' should be in the following format...
+
+    \dirlevel1\dirlevel2 etc.                    
+	
+'rfsdirtype' can be one of the following...    
+
+PRIVATE, SECURED, PUBLICR, or PUBLICW        
+
+The RFSTOOL.PROC defaults to 'PRIVATE'.  If you've enabled RFS File System security using the CICSECX2 security exit you may need to specify 'SECURED' to create the new directory with the XSEC setting to invoke External Security Manager (ESM) checks using the CICSECX2 security exit.
+ 
+**DELETEDIR**  
+
+This command deletes a directory from the RFS File System.  It only applies to the POOLOUT target RFS File System.  The format of the control card is...
+
+    DELETEDIR rfsdirid
+	
+'rfsdirid' should be in the following format...
+
+    \dirlevel1\dirlevel2 etc.
+
+**DELETEFILE** 
+
+This command deletes a file from the RFS File System.  It only applies to the POOLOUT target RFS File System.  The format of the control card is...
+
+    DELETEFILE rfsfileid
+	
+'rfsfileid' should be in the following format...
+
+    \dirlevel1\dirlevel2\..\filename
+
+[Return to TOC](#table-of-contents)
+
+##### RFSTOOL.PROC Sample JCL
+
+To be updated...
 
 [Return to TOC](#table-of-contents)
