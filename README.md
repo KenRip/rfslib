@@ -39,6 +39,7 @@ A CICS/REXX application that provides advanced navigation plus additional featur
   - [Consecutive Block Commands](#consecutive-block-commands)
   - [Command Line Commands](#command-line-commands)
 - [APPENDIX](#appendix)
+  - [Adding the RFSLIB Application to the Interactive User Interface](#adding-the-rfslib-application-to-the-interactive-user-interface)
   - [Cross reference of VSE Library members provided with the RFSLIB application](#cross-reference-of-vse-library-members-provided-with-the-rfslib-application)
   - [The RFSTOOL.PROC REXX/VSE Batch Utility](#the-rfstoolproc-rexxvse-batch-utility)
     - [RFS Backups](#rfs-backups)
@@ -438,6 +439,8 @@ Here's some more examples...
 [Return to TOC](#table-of-contents)
 
 ## Functionality
+
+To start the RFSLIB application you can execute the CICS transaction REXX with the inpu parmameter of 'RFSLIB'.  This can be done from a blank screen in CICS.  If accessing from the VSE Interactive User Interface (IUI) you will need to use the PF9 'Escape(m)' option to escape from the IUI to a CICS screen in mixed case mode.  If you'd like to add the RFSLIB application to your IUI selection panels please see the Appendix section titled [Adding the RFSLIB Application to the Interactive User Interface](#adding-the-rfslib-application-to-the-interactive-user-interface).
 
 The RFSLIB main screen is a member listing and selection screen similar to that provided by IBM in the z/VSE Interactive Interface for accessing an ICCF Library.  This main screen provides a directory listing of the contents of the current CICS/REXX File System (or RFS) directory.  From this directory listing the user can select members for viewing and editing as well as several other functions.  In addition a Command Line area is available for accessing specific commands which have been provided to add functions and features to the CICS/REXX environment.
 
@@ -1026,6 +1029,22 @@ IBM Publication Number SC34-5764-01.
 [Return to TOC](#table-of-contents)
 
 ## APPENDIX
+
+### Adding the RFSLIB Application to the Interactive User Interface
+
+It is fairly easy to integrate the RFSLIB application into the VSE Interactive User Interface (IUI).  First you will need to define an 'Application Profile' to the IUI.  This can be done by navigating the the IUI menus as follows...
+
+    Resource Definition > User Interface Tailoring > Maintain Application Profiles
+	
+Note: If you've tailored your IUI selection panels these options may vary.  The specific Application Profile you would like to navigate to is named 'IESADMUIFA' (titled 'MAINTAIN APPLICATION PROFILES').
+
+Press ENTER from the IESADMUIFA screen to view a list of all the existing Application Profiles.  Move the cursur to the first entry on the list enter a '1' (for ADD) and hit ENTER.
+
+Enter the information seen on the screen shot below to define the RFSLIB Application Profile.
+
+![Screenshot of RFSLIB Application Profile for IUI](https://github.com/KenRip/rfslib/raw/master/images/Screenshot%20Define%20RFSLIB%20Application%20to%20IUI.png)
+
+Once the Application Profile is defined you can add it to a Selection Panel assigned to the users you want to have access to the RFSLIB Application.
 
 ### Cross reference of VSE Library members provided with the RFSLIB application
 
