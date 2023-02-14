@@ -1,6 +1,6 @@
 # RFSLIB CICS/REXX Application for z/VSE (and VSEn)
 
-A CICS/REXX application that provides advanced navigation plus additional features and functions over and above those provided in the base CICS/REXX provided with the VSE Operating System.  It provides seemless integration into the VSE Interactive User Interface (IUI) provided with VSE and promotes VSE users to user the powerful full-screen editor environment provided with CICS/REXX support.
+A CICS/REXX application that provides advanced navigation plus additional features and functions over and above those provided in the base CICS/REXX provided with the VSE Operating System.  It provides seemless integration into the VSE Interactive User Interface (IUI) provided with VSE and promotes VSE users to use the powerful full-screen editor environment included with the CICS/REXX support.
 
 ![Screenshot of RFSLIB Mainscreen](https://github.com/KenRip/rfslib/raw/master/images/Screenshot%20RFSLIB%20Mainscreen%20M2.png)
 
