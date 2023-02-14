@@ -1337,6 +1337,86 @@ This command deletes a file from the RFS File System.  It only applies to the PO
 
 ##### RFSTOOL.PROC Sample JCL
 
-To be updated...
+Here are some examples of RFSTOOL.PROC usage scenarios.
+
+**Using RFSTOOL.PROC to list the directory from a backup file set**
+
+The jobstep JCL would be something like the following...
+
+    // DLBL DIRIN,'RFSDIR1.REPRO.BACKUP'           
+    // EXTENT ,VOL001,,,10000,250                  
+    // ASSGN SYS004,xxx                            
+    // DLBL POLIN1,'RFSPOL1.FILE01.REPRO.BACKUP'   
+    // EXTENT ,VOL001,,,10000,250                  
+    // ASSGN SYS005,xxx                            
+    // EXEC REXX=RFSTOOL                           
+     POOLIN RFSDIR1 RFSPOL1
+     DIRECTORY * FULL POOLIN	 
+    /* 
+
+This could be used to list the contents of a backup file set and might be something you include in your backup job after the REPRO backup step so your backup job includes a listing of the files and directories included in the backup.
+
+**Using RFSTOOL.PROC to restore a specific file to a new filename**
+
+The jobstep JCL would be something like the following...
+
+    // DLBL DIRIN,'RFSDIR1.REPRO.BACKUP'           
+    // EXTENT ,VOL001,,,10000,250                  
+    // ASSGN SYS004,xxx                            
+    // DLBL POLIN1,'RFSPOL1.FILE01.REPRO.BACKUP'   
+    // EXTENT ,VOL001,,,10000,250                  
+    // ASSGN SYS005,xxx                            
+    // EXEC REXX=RFSTOOL  
+     CICSREGION DBDCCICS	
+     POOLIN RFSDIR1 RFSPOL1
+	 POOLOUT RFSDIR1 RFSPOL1
+     REPLACE YES
+     RESTOREFILE \USERS\SYSA\TEST.EXEC -
+              TO \USERS\OPER\NEW.EXEC	 
+    /* 
+
+In the above example the RFSTOOL.PROC will utilize the VSAM-via-CICS support running in CICSREGION DBDCCICS and restore file '\USERS\SYSA\TEST.EXEC' from the input backup file to the active RFS File System in the CICS region in the CICS Files RFSDIR1 and RFSPOL1 (specified on the POOLOUT statement) as filename '\USERS\OPER\NEW.EXEC'.  Note that this is a completely different location from the original backup and that because 'REPLACE YES' was specified the target filename would be replaced if it existed.
+
+**Using RFSTOOL.PROC to create a new directory and then restore all files from a directory on the backup to the new directory**
+
+The jobstep JCL would be something like the following...
+
+    // DLBL DIRIN,'RFSDIR1.REPRO.BACKUP'           
+    // EXTENT ,VOL001,,,10000,250                  
+    // ASSGN SYS004,xxx                            
+    // DLBL POLIN1,'RFSPOL1.FILE01.REPRO.BACKUP'   
+    // EXTENT ,VOL001,,,10000,250                  
+    // ASSGN SYS005,xxx                            
+    // EXEC REXX=RFSTOOL  
+     CICSREGION DBDCCICS	
+     POOLIN RFSDIR1 RFSPOL1
+	 POOLOUT RFSDIR2 RFSPOL2
+     REPLACE YES
+	 MAKEDIR \PUBLIC\SYSA PUBLICW
+     RESTOREDIR \USERS\SYSA -
+              TO \PUBLIC\SYSA	 
+    /* 
+
+In the above example the RFSTOOL.PROC will utilize the VSAM-via-CICS support running in CICSREGION DBDCCICS and restore all files in directory '\USERS\SYSA'1 from the input backup file to the active RFS File System in the CICS region in the CICS Files RFSDIR2 and RFSPOL2 as filename '\PUBLIC\SYSA'.  Before doign so the MAKEDIR command would have defined a new directory in the target RFS File System called '\PUBLIC\SYSA' with the PUBLICW attribute meaning every user would have read/write access to the directory.
+
+**Using RFSTOOL.PROC to delete files and directories from the online RFS File System**
+
+The jobstep JCL would be something like the following...
+
+    // DLBL DIRIN,'RFSDIR1.REPRO.BACKUP'           
+    // EXTENT ,VOL001,,,10000,250                  
+    // ASSGN SYS004,xxx                            
+    // DLBL POLIN1,'RFSPOL1.FILE01.REPRO.BACKUP'   
+    // EXTENT ,VOL001,,,10000,250                  
+    // ASSGN SYS005,xxx 
+    // EXEC REXX=RFSTOOL  
+     CICSREGION DBDCCICS	
+	 POOLIN RFSDIR1 RFSPOL1
+	 POOLOUT RFSDIR1 RFSPOL1
+     DELETEFILE \USERS\SYSA\TEST.EXEC
+	 DELETEDIR \USERS\SYSA\TESTDIR
+    /* 
+
+In the above example the RFSTOOL.PROC will utilize the VSAM-via-CICS support running in CICSREGION DBDCCICS and delete the file named '\USERS\SYSA\TEST.EXEC' and the directory named '\USERS\SYSA\TESTDIR' from the online RFS File System specified on the POOLOUT statement.  Note that the POOLIN statement is required by the current version of the RFSTOOL.PROC but in this case (where the RESTOREFILE, RESTOREDIR or DIRECTORY with POOLIN are not specified) is NOT used.  Unfortunately you must have a backup file set specified in the JCL at this time (this will be corrected in a future release of the RFSTOOL.PROC).
 
 [Return to TOC](#table-of-contents)
