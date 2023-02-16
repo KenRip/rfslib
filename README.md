@@ -444,9 +444,9 @@ To start the RFSLIB application you can execute the CICS transaction REXX with t
 
 The RFSLIB main screen is a member listing and selection screen similar to that provided by IBM in the z/VSE Interactive Interface for accessing an ICCF Library.  This main screen provides a directory listing of the contents of the current CICS/REXX File System (or RFS) directory.  From this directory listing the user can select members for viewing and editing as well as several other functions.  In addition a Command Line area is available for accessing specific commands which have been provided to add functions and features to the CICS/REXX environment.
 
-The screen is broken into several areas.  These are...
-
 [Return to TOC](#table-of-contents)
+
+The screen is broken into several areas.  These are...
 
 ### TOP AREA
 
