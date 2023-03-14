@@ -59,7 +59,7 @@ You must complete the instructions found in Appendix K: Post-Installation Config
 
 Please note that the steps decribed in the section titled "Rename supplied Procedures" of Appendix K in the CICS Transaction Server for VSE/ESA REXX Guide have been made obsolete.  These *.Z members are no longer provided in PRD1.BASE.  Instead they are shipped already renamed to *.PROC in PRD1.BASE which makes them avaialble in the CICSICCF region shipped with z/VSE.
 
-Please also note that the REXX DB2 Interface support described in the section titled "" of Appendix K in the CICS Transaction Server for VSE/ESA REXX Guide is NO longer available in z/VSE 6.1 and above.  CICS REXX support has been added to the z/VSE database connector DBCLI (Database Call Level Interface) as of z/VSE 6.2 (via PTF).
+Please also note that the REXX DB2 Interface support described in the section titled "Configure the REXX DB2 Interface" of Appendix K in the CICS Transaction Server for VSE/ESA REXX Guide is NO longer available in z/VSE 6.1 and above.  CICS REXX support has been added to the z/VSE database connector DBCLI (Database Call Level Interface) as of z/VSE 6.2 (via PTF).
 
 [Return to TOC](#table-of-contents)
 
