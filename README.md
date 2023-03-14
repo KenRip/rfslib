@@ -4,6 +4,8 @@ A CICS/REXX application that provides advanced navigation plus additional featur
 
 ![Screenshot of RFSLIB Mainscreen](https://github.com/KenRip/rfslib/raw/master/images/Screenshot%20RFSLIB%20Mainscreen%20M2.png)
 
+![Screenshot of RFSLIB Mainscreen](https://github.com/KenRip/rfslib/raw/master/images/Screenshot%20RFSLIB%20CICS-REXX%20Editor%20M4.png)
+
 ## Table of Contents
 
 - [Introduction](#introduction)
